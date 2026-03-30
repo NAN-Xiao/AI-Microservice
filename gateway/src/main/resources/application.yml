@@ -1,0 +1,68 @@
+server:
+  port: 8080
+  netty:
+    max-initial-line-length: 65536
+    h2c-max-content-length: 0
+
+spring:
+  application:
+    name: ai-gateway
+  codec:
+    max-in-memory-size: 52428800   # 50MB, match nginx client_max_body_size
+  cloud:
+    gateway:
+      httpclient:
+        connect-timeout: 10000       # 10s
+        response-timeout: 600s       # 10min, LLM calls can be slow
+        pool:
+          max-idle-time: 30s
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      routes:
+        # -------- video_analyze (port 9001) --------
+        - id: video-analyze
+          uri: http://127.0.0.1:9001
+          predicates:
+            - Path=/api/video-analyze/**
+          filters:
+            - name: RequestSize
+              args:
+                maxSize: 52428800    # 50MB
+
+        # -------- ui_builder (port 9002) --------
+        - id: ui-builder
+          uri: http://127.0.0.1:9002
+          predicates:
+            - Path=/api/ui-builder/**
+          filters:
+            - name: RequestSize
+              args:
+                maxSize: 52428800    # 50MB
+
+# --------------------------------------------------
+# Upstream addresses (custom property for reference)
+# Override via env: AGENT_VIDEO_ANALYZE_URL / AGENT_UI_BUILDER_URL
+# --------------------------------------------------
+agent:
+  video-analyze:
+    url: http://127.0.0.1:9001
+  ui-builder:
+    url: http://127.0.0.1:9002
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.ai.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG
