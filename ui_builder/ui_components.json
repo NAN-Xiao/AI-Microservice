@@ -1,0 +1,206 @@
+{
+  "Canvas": {
+    "description": "UI 根画布",
+    "components": ["Canvas", "CanvasScaler", "GraphicRaycaster"],
+    "properties": {
+      "renderMode": {"type": "enum", "values": ["ScreenSpaceOverlay", "ScreenSpaceCamera", "WorldSpace"], "default": "ScreenSpaceOverlay"},
+      "uiScaleMode": {"type": "enum", "values": ["ConstantPixelSize", "ScaleWithScreenSize"], "default": "ScaleWithScreenSize"},
+      "referenceResolution": {"type": "vector2", "default": [1080, 1920]}
+    }
+  },
+  "Panel": {
+    "description": "面板/容器，带背景色",
+    "components": ["Image"],
+    "properties": {
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "raycastTarget": {"type": "bool", "default": true}
+    }
+  },
+  "Image": {
+    "description": "图片",
+    "components": ["Image"],
+    "properties": {
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "raycastTarget": {"type": "bool", "default": true},
+      "imageType": {"type": "enum", "values": ["Simple", "Sliced", "Tiled", "Filled"], "default": "Simple"},
+      "preserveAspect": {"type": "bool", "default": false}
+    }
+  },
+  "RawImage": {
+    "description": "原始图片（支持任意纹理）",
+    "components": ["RawImage"],
+    "properties": {
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "raycastTarget": {"type": "bool", "default": true}
+    }
+  },
+  "Text": {
+    "description": "文本",
+    "components": ["Text"],
+    "properties": {
+      "text": {"type": "string", "default": ""},
+      "fontSize": {"type": "int", "default": 24},
+      "color": {"type": "color", "default": "#323232FF"},
+      "alignment": {"type": "enum", "values": ["UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight"], "default": "UpperLeft"},
+      "fontStyle": {"type": "enum", "values": ["Normal", "Bold", "Italic", "BoldAndItalic"], "default": "Normal"},
+      "horizontalOverflow": {"type": "enum", "values": ["Wrap", "Overflow"], "default": "Wrap"},
+      "verticalOverflow": {"type": "enum", "values": ["Truncate", "Overflow"], "default": "Truncate"},
+      "bestFit": {"type": "bool", "default": false},
+      "raycastTarget": {"type": "bool", "default": false}
+    }
+  },
+  "Button": {
+    "description": "按钮（Image 背景 + Text 子节点）",
+    "components": ["Image", "Button"],
+    "properties": {
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "text": {"type": "string", "default": "Button"},
+      "textColor": {"type": "color", "default": "#323232FF"},
+      "textFontSize": {"type": "int", "default": 24},
+      "interactable": {"type": "bool", "default": true}
+    },
+    "auto_children": [
+      {
+        "name": "Text",
+        "type": "Text",
+        "stretch": true,
+        "properties": {"alignment": "MiddleCenter"}
+      }
+    ]
+  },
+  "Toggle": {
+    "description": "开关",
+    "components": ["Toggle"],
+    "properties": {
+      "isOn": {"type": "bool", "default": true},
+      "interactable": {"type": "bool", "default": true}
+    },
+    "auto_children": [
+      {
+        "name": "Background",
+        "type": "Image",
+        "rect": {"width": 40, "height": 40},
+        "children": [
+          {"name": "Checkmark", "type": "Image", "stretch": true}
+        ]
+      },
+      {
+        "name": "Label",
+        "type": "Text",
+        "stretch": true,
+        "properties": {"text": "Toggle", "alignment": "MiddleLeft"}
+      }
+    ]
+  },
+  "Slider": {
+    "description": "滑动条",
+    "components": ["Slider"],
+    "properties": {
+      "value": {"type": "float", "default": 0},
+      "minValue": {"type": "float", "default": 0},
+      "maxValue": {"type": "float", "default": 1},
+      "wholeNumbers": {"type": "bool", "default": false},
+      "direction": {"type": "enum", "values": ["LeftToRight", "RightToLeft", "BottomToTop", "TopToBottom"], "default": "LeftToRight"},
+      "interactable": {"type": "bool", "default": true}
+    }
+  },
+  "Scrollbar": {
+    "description": "滚动条",
+    "components": ["Image", "Scrollbar"],
+    "properties": {
+      "value": {"type": "float", "default": 0},
+      "size": {"type": "float", "default": 0.2},
+      "direction": {"type": "enum", "values": ["LeftToRight", "RightToLeft", "BottomToTop", "TopToBottom"], "default": "BottomToTop"},
+      "interactable": {"type": "bool", "default": true}
+    }
+  },
+  "ScrollView": {
+    "description": "可滚动视图（ScrollRect）",
+    "components": ["Image", "ScrollRect", "Mask"],
+    "properties": {
+      "horizontal": {"type": "bool", "default": false},
+      "vertical": {"type": "bool", "default": true},
+      "movementType": {"type": "enum", "values": ["Unrestricted", "Elastic", "Clamped"], "default": "Elastic"},
+      "elasticity": {"type": "float", "default": 0.1},
+      "inertia": {"type": "bool", "default": true},
+      "scrollSensitivity": {"type": "float", "default": 1},
+      "color": {"type": "color", "default": "#FFFFFFFF"}
+    },
+    "auto_children": [
+      {
+        "name": "Viewport",
+        "type": "Panel",
+        "stretch": true,
+        "properties": {"color": "#FFFFFF00"},
+        "children": [
+          {"name": "Content", "type": "Panel", "stretch_top": true, "properties": {"color": "#FFFFFF00"}}
+        ]
+      }
+    ]
+  },
+  "Dropdown": {
+    "description": "下拉菜单",
+    "components": ["Image", "Dropdown"],
+    "properties": {
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "options": {"type": "string_array", "default": ["Option A", "Option B", "Option C"]},
+      "value": {"type": "int", "default": 0},
+      "interactable": {"type": "bool", "default": true}
+    }
+  },
+  "InputField": {
+    "description": "输入框",
+    "components": ["Image", "InputField"],
+    "properties": {
+      "text": {"type": "string", "default": ""},
+      "placeholder": {"type": "string", "default": "Enter text..."},
+      "color": {"type": "color", "default": "#FFFFFFFF"},
+      "textColor": {"type": "color", "default": "#323232FF"},
+      "fontSize": {"type": "int", "default": 24},
+      "characterLimit": {"type": "int", "default": 0},
+      "contentType": {"type": "enum", "values": ["Standard", "IntegerNumber", "DecimalNumber", "Alphanumeric", "Name", "EmailAddress", "Password"], "default": "Standard"},
+      "lineType": {"type": "enum", "values": ["SingleLine", "MultiLineSubmit", "MultiLineNewline"], "default": "SingleLine"},
+      "interactable": {"type": "bool", "default": true}
+    }
+  },
+  "HorizontalLayoutGroup": {
+    "description": "水平布局组",
+    "components": ["HorizontalLayoutGroup"],
+    "properties": {
+      "spacing": {"type": "float", "default": 0},
+      "padding": {"type": "rect_offset", "default": [0, 0, 0, 0]},
+      "childAlignment": {"type": "enum", "values": ["UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight"], "default": "UpperLeft"},
+      "childForceExpandWidth": {"type": "bool", "default": true},
+      "childForceExpandHeight": {"type": "bool", "default": true},
+      "childControlWidth": {"type": "bool", "default": true},
+      "childControlHeight": {"type": "bool", "default": true}
+    }
+  },
+  "VerticalLayoutGroup": {
+    "description": "垂直布局组",
+    "components": ["VerticalLayoutGroup"],
+    "properties": {
+      "spacing": {"type": "float", "default": 0},
+      "padding": {"type": "rect_offset", "default": [0, 0, 0, 0]},
+      "childAlignment": {"type": "enum", "values": ["UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight"], "default": "UpperLeft"},
+      "childForceExpandWidth": {"type": "bool", "default": true},
+      "childForceExpandHeight": {"type": "bool", "default": true},
+      "childControlWidth": {"type": "bool", "default": true},
+      "childControlHeight": {"type": "bool", "default": true}
+    }
+  },
+  "GridLayoutGroup": {
+    "description": "网格布局组",
+    "components": ["GridLayoutGroup"],
+    "properties": {
+      "cellSize": {"type": "vector2", "default": [100, 100]},
+      "spacing": {"type": "vector2", "default": [0, 0]},
+      "padding": {"type": "rect_offset", "default": [0, 0, 0, 0]},
+      "startCorner": {"type": "enum", "values": ["UpperLeft", "UpperRight", "LowerLeft", "LowerRight"], "default": "UpperLeft"},
+      "startAxis": {"type": "enum", "values": ["Horizontal", "Vertical"], "default": "Horizontal"},
+      "childAlignment": {"type": "enum", "values": ["UpperLeft", "UpperCenter", "UpperRight", "MiddleLeft", "MiddleCenter", "MiddleRight", "LowerLeft", "LowerCenter", "LowerRight"], "default": "UpperLeft"},
+      "constraint": {"type": "enum", "values": ["Flexible", "FixedColumnCount", "FixedRowCount"], "default": "Flexible"},
+      "constraintCount": {"type": "int", "default": 2}
+    }
+  }
+}
