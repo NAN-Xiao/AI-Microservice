@@ -44,9 +44,9 @@ async def analyze(req: AnalyzeRequest):
         logger.error("无法连接 LLM 服务")
         return ApiResult.error(503, "无法连接 LLM 服务，请检查网络或 API 地址")
 
-    except Exception as e:
+    except Exception:
         logger.exception("分析失败")
-        return ApiResult.error(500, f"分析失败: {e}")
+        return ApiResult.error(500, "分析失败，请稍后重试")
 
 
 def _parse_json_result(text: str) -> dict:

@@ -37,9 +37,7 @@ public class ForwardHeadersFilter implements GlobalFilter, Ordered {
             builder.header("X-Real-IP", directIp);
         }
 
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            builder.header("X-Forwarded-For", forwardedFor + ", " + directIp);
-        } else {
+        if (forwardedFor == null || forwardedFor.isBlank()) {
             builder.header("X-Forwarded-For", directIp);
         }
 

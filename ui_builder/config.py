@@ -1,5 +1,8 @@
 import os
 from dataclasses import dataclass
+from typing import Optional
+
+import httpx
 
 
 @dataclass
@@ -13,6 +16,8 @@ class Settings:
     api_key: str = os.environ.get("LLM_API_KEY", "apg_c2a9f12cb04b6db44c905952402619ba39a4eb446185653c")
     model: str = os.environ.get("LLM_MODEL", "gemini-2.5-pro")
     timeout: int = int(os.environ.get("LLM_TIMEOUT", "300"))
+    service_name: str = "ui-builder"
+    http_client: Optional[httpx.AsyncClient] = None
 
 
 settings = Settings()

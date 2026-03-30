@@ -13,6 +13,10 @@ logger = logging.getLogger(__name__)
 
 async def analyze(video_url: str, prompt: str) -> str:
     """传入视频 URL + 提示词 → 调用 LLM → 返回结果文本。"""
+    client = settings.http_client
+    if client is None:
+        raise RuntimeError("HTTP client is not initialized")
+
     payload = {
         "model": settings.model,
         "messages": [
@@ -28,13 +32,12 @@ async def analyze(video_url: str, prompt: str) -> str:
 
     logger.info("调用 LLM: model=%s, video_url=%s", settings.model, video_url)
 
-    async with httpx.AsyncClient(timeout=settings.timeout) as client:
-        resp = await client.post(
-            f"{settings.api_url}/chat/completions",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.api_key}"},
-        )
-        resp.raise_for_status()
-        result = resp.json()
+    resp = await client.post(
+        f"{settings.api_url}/chat/completions",
+        json=payload,
+        headers={"Authorization": f"Bearer {settings.api_key}"},
+    )
+    resp.raise_for_status()
+    result = resp.json()
 
     return result["choices"][0]["message"]["content"]

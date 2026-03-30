@@ -1,10 +1,11 @@
 """
-UI Builder Agent - 视频分析微服务
+Video Analyze 微服务：接收视频地址并调用 LLM 输出标签结果
 """
 
 import logging
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 
 from config import settings
@@ -20,17 +21,21 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings.upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.http_client = httpx.AsyncClient(timeout=settings.timeout)
     logger.info(
-        "UI Builder Agent started | port=%s | llm=%s | upload_dir=%s",
-        settings.port, settings.llm.provider, settings.upload_dir,
+        "Video Analyze started | port=%s | model=%s | upload_dir=%s",
+        settings.port, settings.model, settings.upload_dir,
     )
     yield
-    logger.info("UI Builder Agent shutting down")
+    if settings.http_client is not None:
+        await settings.http_client.aclose()
+        settings.http_client = None
+    logger.info("Video Analyze shutting down")
 
 
 app = FastAPI(
-    title="UI Builder Agent",
-    description="视频分析微服务：上传视频 → AI 分析 → 返回标签/描述",
+    title="Video Analyze Agent",
+    description="视频分析微服务：输入视频地址并输出标签结果",
     lifespan=lifespan,
 )
 

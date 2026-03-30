@@ -1,5 +1,6 @@
 server:
   port: 8080
+  forward-headers-strategy: framework
   netty:
     max-initial-line-length: 65536
     h2c-max-content-length: 0
@@ -8,58 +9,66 @@ spring:
   application:
     name: ai-gateway
   codec:
-    max-in-memory-size: 52428800   # 50MB, match nginx client_max_body_size
-  cloud:
+    max-in-memory-size: 52428800   # 50MB，与nginx的client_max_body_size保持一致
+  cloud:                                        # Spring Cloud Gateway 配置             
     gateway:
       httpclient:
-        connect-timeout: 10000       # 10s
-        response-timeout: 600s       # 10min, LLM calls can be slow
+        connect-timeout: 10000       # 10秒，连接超时时间
+        response-timeout: 600s       # 10分钟，LLM接口响应较慢需足够时间
         pool:
-          max-idle-time: 30s
+          max-idle-time: 30s         # 最大空闲时间30秒
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       routes:
-        # -------- video_analyze (port 9001) --------
+        # -------- video_analyze 服务（端口9001）--------
         - id: video-analyze
-          uri: http://127.0.0.1:9001
+          uri: ${AGENT_VIDEO_ANALYZE_URL:http://127.0.0.1:9001}
           predicates:
             - Path=/api/video-analyze/**
           filters:
             - name: RequestSize
               args:
-                maxSize: 52428800    # 50MB
+                maxSize: 52428800    # 50MB，请求体大小限制
 
-        # -------- ui_builder (port 9002) --------
+        # -------- ui_builder 服务（端口9002）--------
         - id: ui-builder
-          uri: http://127.0.0.1:9002
+          uri: ${AGENT_UI_BUILDER_URL:http://127.0.0.1:9002}
           predicates:
             - Path=/api/ui-builder/**
           filters:
             - name: RequestSize
               args:
-                maxSize: 52428800    # 50MB
+                maxSize: 52428800    # 50MB，请求体大小限制
 
 # --------------------------------------------------
-# Upstream addresses (custom property for reference)
-# Override via env: AGENT_VIDEO_ANALYZE_URL / AGENT_UI_BUILDER_URL
+# 上游服务地址（自定义属性，仅做参考）
+# 可通过环境变量AGENT_VIDEO_ANALYZE_URL / AGENT_UI_BUILDER_URL覆盖
 # --------------------------------------------------
-agent:
-  video-analyze:
-    url: http://127.0.0.1:9001
-  ui-builder:
-    url: http://127.0.0.1:9002
+gateway:
+  auth:
+    enabled: ${GATEWAY_AUTH_ENABLED:false}
+    whitelist:
+      - /actuator/health
+      - /gateway-health
+    allowed-tokens: ${GATEWAY_AUTH_ALLOWED_TOKENS:}
+  cors:
+    allowed-origin-patterns: ${GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+    allowed-methods: ${GATEWAY_CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+    allowed-headers: ${GATEWAY_CORS_ALLOWED_HEADERS:*}
+    allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:false}
+    max-age: ${GATEWAY_CORS_MAX_AGE:3600}
 
-# Actuator
+# Actuator端点
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
   endpoint:
     health:
-      show-details: always
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
     gateway:
-      enabled: true
+      enabled: ${MANAGEMENT_ENDPOINT_GATEWAY_ENABLED:false}
 
 logging:
   level:

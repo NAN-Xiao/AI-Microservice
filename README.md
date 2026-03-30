@@ -1,18 +1,18 @@
 # AI Agent 微服务平台
 
-多语言 AI Agent 微服务架构，支持 Nginx 或 Spring Cloud Gateway 统一路由。
+多语言 AI Agent 微服务架构，采用 `Nginx -> Spring Cloud Gateway -> Agents` 分层网关模式。
 
 ## 架构
 
 ```
-客户端 → Java Gateway (8080) ──┬── /api/video-analyze/** → video_analyze Agent (Python, 9001)
-         或 Nginx (80)         └── /api/ui-builder/**    → ui_builder Agent   (Python, 9002)
+客户端 → Nginx (80/443) → Java Gateway (8080) ──┬── /api/video-analyze/** → video_analyze Agent (Python, 9001)
+                                                └── /api/ui-builder/**    → ui_builder Agent   (Python, 9002)
 
 各 Agent ──→ LLM 服务器
 ```
 
-- **Java Gateway**：Spring Cloud Gateway 统一入口，路由分发、日志、CORS、鉴权（可选）
-- **Nginx**：备用方案，配置在 `nginx/nginx.conf`
+- **Nginx**：边缘入口，负责 TLS 终止、入口代理、外网访问控制
+- **Java Gateway**：应用网关，负责路由分发、日志、CORS、鉴权、统一错误处理
 - **Agent 服务**：各语言独立实现，遵循统一 API 接口契约
 
 ## 项目结构
@@ -36,7 +36,7 @@ AI-Microservice/
 │           └── application.yml
 ├── video_analyze/            # 视频分析 Agent (Python FastAPI, 9001)
 ├── ui_builder/               # UI 构建 Agent (Python FastAPI, 9002)
-└── nginx/                    # Nginx 配置（备用）
+└── nginx/                    # Nginx 边缘入口配置
     └── nginx.conf
 ```
 
@@ -57,7 +57,7 @@ AI-Microservice/
 | 请求日志 | AccessLogFilter 记录每个请求的方法、路径、耗时 |
 | 请求头转发 | X-Real-IP, X-Forwarded-For, X-Forwarded-Proto |
 | CORS | 全局跨域支持 |
-| 鉴权 | AuthFilter（默认关闭，可配置开启） |
+| 鉴权 | AuthFilter（默认关闭，支持静态 Bearer Token） |
 | 错误处理 | 统一 JSON 错误响应，与下游 ApiResult 格式一致 |
 | 健康检查 | `/gateway-health` + Actuator `/actuator/health` |
 | 大文件上传 | 支持 50MB 请求体 |
@@ -87,12 +87,16 @@ java -jar target/gateway-1.0.0.jar
 # 修改网关端口
 server.port: 8080
 
-# 修改下游服务地址（也可通过环境变量覆盖）
-spring.cloud.gateway.routes[0].uri: http://127.0.0.1:9001
-spring.cloud.gateway.routes[1].uri: http://127.0.0.1:9002
+# 通过环境变量覆盖下游服务地址
+AGENT_VIDEO_ANALYZE_URL=http://127.0.0.1:9001
+AGENT_UI_BUILDER_URL=http://127.0.0.1:9002
 
-# 开启鉴权
-gateway.auth.enabled: true
+# 开启鉴权并配置 Bearer Token
+GATEWAY_AUTH_ENABLED=true
+GATEWAY_AUTH_ALLOWED_TOKENS=demo-token-1,demo-token-2
+
+# 配置允许跨域的前端来源
+GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:3000,http://127.0.0.1:5173
 ```
 
 ### API 路由
@@ -128,7 +132,18 @@ gateway.auth.enabled: true
 
 ## 启用鉴权
 
-1. 部署鉴权服务，提供 Token 验证接口
-2. 在 `application.yml` 中设置 `gateway.auth.enabled: true`
-3. 在 `AuthFilter.java` 中实现具体验证逻辑（JWT / 远程调用）
+1. 设置 `GATEWAY_AUTH_ENABLED=true`
+2. 设置 `GATEWAY_AUTH_ALLOWED_TOKENS=token-a,token-b`
+3. 客户端使用 `Authorization: Bearer <token>` 调用网关
 4. 重启网关
+
+## 运维接口建议
+
+1. `/gateway-health` 可用于对外健康探测
+2. `/actuator/health` 建议仅通过内网或运维网访问
+3. 若需暴露 `/actuator/gateway`，请先显式设置：
+
+```bash
+MANAGEMENT_ENDPOINT_GATEWAY_ENABLED=true
+MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,gateway
+```
