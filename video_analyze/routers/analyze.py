@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from models.response import ApiResult
 from services import llm_service
-from services.tag_schema import build_tag_prompt
+from services.tag_schema import build_tag_prompt, sanitize_tags, get_tag_schema, update_tag_schema
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,15 @@ async def analyze(req: AnalyzeRequest):
     try:
         prompt = build_tag_prompt(req.extra_prompt)
         result_text = await llm_service.analyze(req.video_url, prompt)
-        tags = _parse_json_result(result_text)
+        raw_tags = _parse_json_result(result_text)
+
+        if "raw_content" in raw_tags:
+            return ApiResult.ok(raw_tags)
+
+        tags, removed = sanitize_tags(raw_tags)
+        if removed:
+            logger.warning("清洗掉 %d 个非法标签: %s", len(removed), removed)
+
         return ApiResult.ok(tags)
 
     except httpx.TimeoutException:
@@ -47,6 +55,33 @@ async def analyze(req: AnalyzeRequest):
     except Exception:
         logger.exception("分析失败")
         return ApiResult.error(500, "分析失败，请稍后重试")
+
+
+@router.get("/tags", response_model=ApiResult)
+async def get_tags():
+    """获取当前标签模板。"""
+    try:
+        return ApiResult.ok(get_tag_schema())
+    except Exception:
+        logger.exception("获取标签模板失败")
+        return ApiResult.error(500, "获取标签模板失败")
+
+
+@router.put("/tags", response_model=ApiResult)
+async def put_tags(new_tags: dict):
+    """
+    上传/替换标签模板。
+    请求体就是完整的标签 JSON，格式与 video_tags.json 相同。
+    上传后立即生效，后续 /analyze 请求会使用新模板。
+    """
+    try:
+        stats = update_tag_schema(new_tags)
+        return ApiResult.ok(stats)
+    except ValueError as e:
+        return ApiResult.error(400, str(e))
+    except Exception:
+        logger.exception("更新标签模板失败")
+        return ApiResult.error(500, "更新标签模板失败")
 
 
 def _parse_json_result(text: str) -> dict:
