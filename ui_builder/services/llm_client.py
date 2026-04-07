@@ -1,5 +1,5 @@
 """
-LLM 服务：调用 Gemini API 分析 UI 图片。
+LLM 客户端：调用 OpenAI 兼容 API 分析 UI 图片。
 使用 system + user 双消息结构。
 """
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def analyze_image(image_bytes: bytes, filename: str,
                         system_prompt: str, user_prompt: str) -> str:
-    """图片 + system/user prompt → 调用 Gemini → 返回结果文本。"""
+    """图片 + system/user prompt → 调用 LLM → 返回结果文本。"""
     client = settings.http_client
     if client is None:
         raise RuntimeError("HTTP client is not initialized")

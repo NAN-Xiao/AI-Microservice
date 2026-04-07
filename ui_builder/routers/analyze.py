@@ -1,8 +1,8 @@
 """
-UI 分析路由（异步任务模式）：
-  POST /submit  — 上传图片，立即返回 taskId
-  GET  /task/{task_id} — 轮询进度 / 获取结果
-  POST /analyze — 保留旧的同步接口（兼容）
+UI 分析 API（异步）  
+POST /submit  — 提交图片，返回 taskId  
+GET  /task/{task_id} — 查询进度与结果  
+POST /analyze — 旧版同步接口（兼容）
 """
 
 import asyncio
@@ -13,12 +13,12 @@ import uuid
 import httpx
 from fastapi import APIRouter, UploadFile, File, Form
 
-import log
+from utils import console_log as log
 from config import settings
-from models.response import ApiResult
-from services import llm_service
+from schemas.response import ApiResult
+from services import llm_client
 from services import task_store
-from services.ui_schema import build_system_prompt, build_user_prompt
+from services.prompt_builder import build_system_prompt, build_user_prompt
 from services.unity_mapper import map_to_unity
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,7 @@ router = APIRouter(prefix="/api/ui-builder", tags=["UI 分析"])
 
 MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20 MB
 
-
-# ── 异步模式：提交 + 轮询 ─────────────────────────────────────────────
+# 异步分析接口
 
 @router.post("/submit", response_model=ApiResult)
 async def submit(
@@ -36,7 +35,7 @@ async def submit(
     extra_prompt: str = Form("", description="额外提示词"),
     resolution: str = Form("1920x1080", description="目标分辨率，如 1920x1080"),
 ):
-    """上传图片 → 立即返回 taskId，后台开始分析。"""
+    """提交图片，返回 taskId，由后台异步分析"""
     if not image.content_type or not image.content_type.startswith("image/"):
         return ApiResult.error(400, f"仅支持图片文件，当前类型: {image.content_type}")
 
@@ -56,56 +55,57 @@ async def submit(
     task_id = uuid.uuid4().hex
     task_store.create(task_id)
 
-    asyncio.create_task(_run_analysis(task_id, image_bytes, filename, extra_prompt, canvas_w, canvas_h))
+    asyncio.create_task(
+        _run_analysis(task_id, image_bytes, filename, extra_prompt,
+                      canvas_w, canvas_h)
+    )
 
     return ApiResult.ok({"taskId": task_id})
 
 
 @router.get("/task/{task_id}", response_model=ApiResult)
 async def get_task(task_id: str):
-    """轮询任务进度。Unity 每隔几秒请求一次。"""
+    """查询任务进度"""
     task_store.cleanup_old()
-
     task = task_store.get(task_id)
     if task is None:
         return ApiResult.error(404, "任务不存在或已过期")
-
     return ApiResult.ok(task_store.to_dict(task))
 
 
 async def _run_analysis(task_id: str, image_bytes: bytes, filename: str,
                         extra_prompt: str, canvas_w: int, canvas_h: int):
-    """后台协程：完整执行分析流水线，实时更新任务进度。"""
+    """异步执行完整分析流程，更新进度"""
     rid = task_id
     log.request_start(rid, filename, len(image_bytes) // 1024, extra_prompt)
 
     try:
-        task_store.update_step(task_id, "正在思考（组织提示词）")
+        task_store.update_step(task_id, "思考中")
         log.step(rid, "构建 Prompt")
         system_prompt = build_system_prompt(canvas_w, canvas_h)
         user_prompt = build_user_prompt(extra_prompt)
         log.step_done(rid, "构建 Prompt")
 
-        task_store.update_step(task_id, "正在调用模型")
+        task_store.update_step(task_id, "调用模型")
         log.step(rid, "调用 LLM", f"model={settings.model} resolution={canvas_w}x{canvas_h}")
 
-        task_store.update_step(task_id, "正在分析图片")
-        result_text = await llm_service.analyze_image(
+        task_store.update_step(task_id, "分析图片")
+        result_text = await llm_client.analyze_image(
             image_bytes, filename,
             system_prompt, user_prompt,
         )
         log.step_done(rid, "调用 LLM", f"返回 {len(result_text)} 字符")
 
-        task_store.update_step(task_id, "正在解析结果")
+        task_store.update_step(task_id, "解析结果")
         log.step(rid, "解析 JSON")
         raw_json = _parse_json_result(result_text)
         if "raw_content" in raw_json:
-            log.request_fail(rid, "LLM 返回了非 JSON 数据")
-            task_store.fail(task_id, 502, "LLM 返回了非 JSON 数据，请重试")
+            log.request_fail(rid, "LLM 返回非 JSON")
+            task_store.fail(task_id, 502, "LLM 返回非 JSON 数据，请重试")
             return
         log.step_done(rid, "解析 JSON")
 
-        task_store.update_step(task_id, "正在构建结构")
+        task_store.update_step(task_id, "构建结构")
         log.step(rid, "Figma → Unity 映射")
         unity_data = map_to_unity(raw_json, canvas_w, canvas_h)
         node_count = _count_nodes(unity_data)
@@ -137,14 +137,14 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str,
         task_store.fail(task_id, 500, "分析失败，请稍后重试")
 
 
-# ── 兼容旧同步接口 ─────────────────────────────────────────────────────
+# 兼容旧同步API
 
 @router.post("/analyze", response_model=ApiResult)
 async def analyze(
     image: UploadFile = File(..., description="UI 示意图（png/jpg/webp）"),
     extra_prompt: str = Form("", description="额外提示词"),
 ):
-    """（兼容）同步模式：上传 UI 示意图 → 等待完成 → 返回 Unity 预制体 JSON。"""
+    """同步分析，直接返回结果（兼容旧接口）"""
     rid = uuid.uuid4().hex
 
     if not image.content_type or not image.content_type.startswith("image/"):
@@ -174,7 +174,7 @@ async def analyze(
         log.step_done(rid, "构建 Prompt")
 
         log.step(rid, "调用 LLM", f"model={settings.model}")
-        result_text = await llm_service.analyze_image(
+        result_text = await llm_client.analyze_image(
             image_bytes, filename,
             system_prompt, user_prompt,
         )
@@ -183,7 +183,7 @@ async def analyze(
         log.step(rid, "解析 JSON")
         raw_json = _parse_json_result(result_text)
         if "raw_content" in raw_json:
-            log.request_fail(rid, "LLM 返回了非 JSON 数据")
+            log.request_fail(rid, "LLM 返回非 JSON")
             return ApiResult.error(502, "LLM 返回了非 JSON 数据，请重试")
         log.step_done(rid, "解析 JSON")
 
@@ -219,10 +219,10 @@ async def analyze(
         return ApiResult.error(500, "分析失败，请稍后重试")
 
 
-# ── 工具函数 ───────────────────────────────────────────────────────────
+# 工具方法
 
 def _parse_resolution(raw: str) -> tuple[int, int]:
-    """解析 '1920x1080' 格式，失败时回退到 1920x1080。"""
+    """解析 '1920x1080' 文本分辨率，出错时用默认值"""
     try:
         parts = raw.lower().split("x")
         w, h = int(parts[0]), int(parts[1])

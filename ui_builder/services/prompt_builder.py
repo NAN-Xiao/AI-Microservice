@@ -1,6 +1,5 @@
 """
-UI 分析 prompt 管理。
-构建让 LLM 输出 Figma 风格设计 JSON 的 system / user prompt。
+Prompt 构建器：生成让 LLM 输出 Figma 风格设计 JSON 的 system / user prompt。
 支持热更新：修改 ui_builder_prompt.md 后自动追加规则。
 
 注意：此模块与 Unity 完全无关，只关心"设计描述"。

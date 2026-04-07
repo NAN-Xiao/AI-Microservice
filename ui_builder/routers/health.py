@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from config import settings
-from models.response import ApiResult
+from schemas.response import ApiResult
 
 router = APIRouter(prefix="/api/ui-builder", tags=["健康检查"])
 
