@@ -55,10 +55,13 @@ _ALIGN_MAP = {
 }
 
 
-def map_to_unity(raw_node: dict) -> dict:
+def map_to_unity(raw_node: dict,
+                 canvas_w: int | None = None,
+                 canvas_h: int | None = None) -> dict:
     """入口：将 Figma 设计树递归转换为 Unity 预制体数据。"""
-    canvas_w, canvas_h = DEFAULT_CANVAS_SIZE
-    result = _process_node(raw_node, None, canvas_w, canvas_h, is_root=True)
+    cw = canvas_w or DEFAULT_CANVAS_SIZE[0]
+    ch = canvas_h or DEFAULT_CANVAS_SIZE[1]
+    result = _process_node(raw_node, None, cw, ch, is_root=True)
     return result
 
 

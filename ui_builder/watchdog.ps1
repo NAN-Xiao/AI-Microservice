@@ -1,4 +1,7 @@
 # ui_builder watchdog
+# 调用 LLM 前请在系统或本脚本中设置: $env:LLM_API_KEY = "你的密钥"
+# 可选: $env:LLM_API_URL = "https://aikey.elex-tech.com/v1"
+# 可选: $env:LLM_MODEL = "gemini-2.5-pro"
 
 $ServiceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $HealthUrl = "http://127.0.0.1:9002/api/ui-builder/health"

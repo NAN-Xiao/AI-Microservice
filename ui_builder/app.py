@@ -22,9 +22,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     settings.http_client = httpx.AsyncClient(timeout=settings.timeout)
     logger.info(
-        "UI Builder started | port=%s | model=%s",
-        settings.port, settings.model,
+        "UI Builder started | port=%s | model=%s | llm_base=%s",
+        settings.port, settings.model, settings.api_url,
     )
+    if not (settings.api_key or "").strip():
+        logger.warning(
+            "LLM 密钥未设置：/analyze 将返回 500，请在 settings.yaml 或环境变量 LLM_API_KEY 中配置"
+        )
     yield
     if settings.http_client is not None:
         await settings.http_client.aclose()

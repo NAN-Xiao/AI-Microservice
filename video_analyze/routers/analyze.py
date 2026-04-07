@@ -9,6 +9,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from config import settings
 from models.response import ApiResult
 from services import llm_service
 from services.tag_schema import build_tag_prompt, sanitize_tags, get_tag_schema, update_tag_schema
@@ -26,6 +27,12 @@ class AnalyzeRequest(BaseModel):
 @router.post("/analyze", response_model=ApiResult)
 async def analyze(req: AnalyzeRequest):
     """传入视频 URL → 返回标签 JSON。"""
+    if not (settings.api_key or "").strip():
+        return ApiResult.error(
+            500,
+            "服务未配置 LLM 密钥：请在 video_analyze/settings.yaml 的 llm.api_key 填写，"
+            "或设置环境变量 LLM_API_KEY（勿将含密钥的 settings.yaml 提交到仓库）。",
+        )
     try:
         prompt = build_tag_prompt(req.extra_prompt)
         result_text = await llm_service.analyze(req.video_url, prompt)

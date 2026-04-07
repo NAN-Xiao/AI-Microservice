@@ -156,7 +156,7 @@ def _build_example() -> str:
     }, ensure_ascii=False, indent=2)
 
 
-def build_system_prompt() -> str:
+def build_system_prompt(canvas_w: int = 1920, canvas_h: int = 1080) -> str:
     """构建 system prompt：Figma 风格设计 JSON 输出规则。"""
     type_ref = _build_type_reference()
     example = _build_example()
@@ -184,7 +184,7 @@ def build_system_prompt() -> str:
 
 ### A. 视觉还原
 - 识别所有可见元素：文字、图标、图片、背景色、分割线、装饰性矩形等
-- 估算每个元素的位置和尺寸（像素），基准画布 1080×1920
+- 估算每个元素的位置和尺寸（像素），基准画布 {canvas_w}×{canvas_h}
 - 还原嵌套层级：哪些是容器（frame），哪些是叶子元素
 
 ### B. 功能推断
@@ -227,9 +227,9 @@ def build_system_prompt() -> str:
 
 ### rect 规则
 - 坐标系：原点在左上角，x 向右，y 向下
-- 单位：像素，基准画布 1080×1920
+- 单位：像素，基准画布 {canvas_w}×{canvas_h}
 - 子节点的 rect 相对于父节点（局部坐标）
-- 根节点 rect 固定为 {{"x": 0, "y": 0, "width": 1080, "height": 1920}}
+- 根节点 rect 固定为 {{"x": 0, "y": 0, "width": {canvas_w}, "height": {canvas_h}}}
 
 ### style 可用属性
 - `fill` — 背景色/填充色，#RRGGBB 格式

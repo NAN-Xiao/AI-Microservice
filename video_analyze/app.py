@@ -26,6 +26,10 @@ async def lifespan(app: FastAPI):
         "Video Analyze started | port=%s | model=%s | upload_dir=%s",
         settings.port, settings.model, settings.upload_dir,
     )
+    if not (settings.api_key or "").strip():
+        logger.warning(
+            "LLM 密钥未设置：/analyze 将调用失败，请在 video_analyze/settings.yaml 或 LLM_API_KEY 中配置"
+        )
     yield
     if settings.http_client is not None:
         await settings.http_client.aclose()
