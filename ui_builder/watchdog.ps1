@@ -12,7 +12,7 @@ $Process = $null
 function Start-Service {
     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting ui_builder..."
     $script:Process = Start-Process -FilePath "python" `
-        -ArgumentList "app.py" `
+        -ArgumentList "run.py" `
         -WorkingDirectory $ServiceDir `
         -PassThru -NoNewWindow
     Write-Host "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] PID: $($script:Process.Id)"

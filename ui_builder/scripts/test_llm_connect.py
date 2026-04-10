@@ -17,7 +17,7 @@ if str(_ROOT) not in sys.path:
 
 import httpx  # noqa: E402
 
-from config import settings  # noqa: E402
+from app.config import settings  # noqa: E402
 
 
 def main() -> int:
