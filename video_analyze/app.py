@@ -1,20 +1,23 @@
 """
-Video Analyze 微服务：接收视频地址并调用 LLM 输出标签结果
+Video Analyze 微服务：接收视频地址并调用 LLM 输出标签结果。
+支持同步分析与异步任务（轮询）两种模式。
 """
 
 import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from config import settings
 from routers import analyze, health
+from utils.logger import setup_logging
 
-logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s - %(message)s",
-)
+# 初始化日志系统（文件 + 控制台）
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -39,9 +42,46 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Video Analyze Agent",
-    description="视频分析微服务：输入视频地址并输出标签结果",
+    description="视频分析微服务：输入视频地址并输出标签结果。支持同步分析和异步任务轮询。",
     lifespan=lifespan,
 )
+
+
+# ─── 全局请求日志中间件 ─────────────────────────────────
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
+    start = time.time()
+    logger.info(
+        "→ %s %s [%s]",
+        request.method, request.url.path, request_id,
+    )
+    try:
+        response = await call_next(request)
+        elapsed = time.time() - start
+        logger.info(
+            "← %s %s [%s] %d (%.1fms)",
+            request.method, request.url.path, request_id,
+            response.status_code, elapsed * 1000,
+        )
+        response.headers["X-Request-ID"] = request_id
+        return response
+    except Exception:
+        elapsed = time.time() - start
+        logger.exception(
+            "← %s %s [%s] 500 (%.1fms) UNHANDLED",
+            request.method, request.url.path, request_id, elapsed * 1000,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": "服务内部错误",
+                "request_id": request_id,
+            },
+        )
+
 
 app.include_router(analyze.router)
 app.include_router(health.router)
