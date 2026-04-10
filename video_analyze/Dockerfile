@@ -26,4 +26,4 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=15s --retries=3 \
 
 # 用 uvicorn 启动，单 worker（LLM 调用是 IO 密集，asyncio 够用）
 # 多实例扩容交给 Docker/K8s，不用 gunicorn 多 worker
-CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "9001", "--log-level", "warning"]
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "9001", "--log-level", "warning"]
