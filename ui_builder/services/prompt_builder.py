@@ -40,38 +40,33 @@ def _build_type_reference() -> str:
     return "\n".join(lines)
 
 
-def _build_example() -> str:
+def _build_example(canvas_w: int = 1920, canvas_h: int = 1080) -> str:
+    """根据目标分辨率动态生成示例 JSON，让 LLM 在正确的像素空间输出。"""
+    w, h = canvas_w, canvas_h
     return json.dumps({
         "name": "Root",
         "type": "frame",
-        "rect": {"x": 0, "y": 0, "width": 1080, "height": 1920},
+        "rect": {"x": 0, "y": 0, "width": w, "height": h},
         "style": {"fill": "#FFFFFF"},
         "children": [
             {
-                "name": "StatusBar",
-                "type": "frame",
-                "rect": {"x": 0, "y": 0, "width": 1080, "height": 44},
-                "style": {"fill": "#2196F3"},
-                "children": []
-            },
-            {
                 "name": "Header",
                 "type": "frame",
-                "rect": {"x": 0, "y": 44, "width": 1080, "height": 112},
+                "rect": {"x": 0, "y": 0, "width": w, "height": round(h * 0.06)},
                 "style": {"fill": "#2196F3"},
                 "children": [
                     {
                         "name": "BackArrow",
                         "type": "icon",
-                        "rect": {"x": 16, "y": 26, "width": 60, "height": 60},
+                        "rect": {"x": round(w * 0.015), "y": round(h * 0.01), "width": round(h * 0.04), "height": round(h * 0.04)},
                         "style": {"fill": "#FFFFFF"},
                         "children": []
                     },
                     {
                         "name": "Title",
                         "type": "text",
-                        "rect": {"x": 90, "y": 26, "width": 400, "height": 60},
-                        "style": {"text_content": "设置", "font_size": 28, "text_color": "#FFFFFF", "text_align": "middle_left"},
+                        "rect": {"x": round(w * 0.08), "y": round(h * 0.01), "width": round(w * 0.4), "height": round(h * 0.04)},
+                        "style": {"text_content": "设置", "font_size": round(h * 0.022), "text_color": "#FFFFFF", "text_align": "middle_left"},
                         "children": []
                     }
                 ]
@@ -79,48 +74,33 @@ def _build_example() -> str:
             {
                 "name": "ContentArea",
                 "type": "scroll_area",
-                "rect": {"x": 0, "y": 156, "width": 1080, "height": 1640},
+                "rect": {"x": 0, "y": round(h * 0.06), "width": w, "height": round(h * 0.84)},
                 "style": {"fill": "#F5F5F5", "scroll_direction": "vertical"},
                 "children": [
                     {
                         "name": "SettingsList",
                         "type": "list",
-                        "rect": {"x": 0, "y": 0, "width": 1080, "height": 1640},
+                        "rect": {"x": 0, "y": 0, "width": w, "height": round(h * 0.84)},
                         "style": {"spacing": 2},
                         "children": [
                             {
                                 "name": "DarkModeRow",
                                 "type": "frame",
-                                "rect": {"x": 0, "y": 0, "width": 1080, "height": 80},
+                                "rect": {"x": 0, "y": 0, "width": w, "height": round(h * 0.06)},
                                 "style": {"fill": "#FFFFFF"},
                                 "children": [
                                     {
                                         "name": "DarkModeLabel",
                                         "type": "text",
-                                        "rect": {"x": 24, "y": 10, "width": 600, "height": 60},
-                                        "style": {"text_content": "深色模式", "font_size": 22, "text_color": "#333333", "text_align": "middle_left"},
+                                        "rect": {"x": round(w * 0.02), "y": round(h * 0.01), "width": round(w * 0.55), "height": round(h * 0.04)},
+                                        "style": {"text_content": "深色模式", "font_size": round(h * 0.02), "text_color": "#333333", "text_align": "middle_left"},
                                         "children": []
                                     },
                                     {
                                         "name": "DarkModeSwitch",
                                         "type": "switch",
-                                        "rect": {"x": 960, "y": 20, "width": 80, "height": 40},
+                                        "rect": {"x": round(w * 0.89), "y": round(h * 0.015), "width": round(w * 0.07), "height": round(h * 0.03)},
                                         "style": {"checked": False},
-                                        "children": []
-                                    }
-                                ]
-                            },
-                            {
-                                "name": "NotificationRow",
-                                "type": "button",
-                                "rect": {"x": 0, "y": 82, "width": 1080, "height": 80},
-                                "style": {"fill": "#FFFFFF", "text_content": "通知设置", "font_size": 22, "text_color": "#333333"},
-                                "children": [
-                                    {
-                                        "name": "ArrowIcon",
-                                        "type": "icon",
-                                        "rect": {"x": 1010, "y": 20, "width": 40, "height": 40},
-                                        "style": {"fill": "#CCCCCC"},
                                         "children": []
                                     }
                                 ]
@@ -132,21 +112,21 @@ def _build_example() -> str:
             {
                 "name": "BottomNav",
                 "type": "horizontal_list",
-                "rect": {"x": 0, "y": 1796, "width": 1080, "height": 124},
+                "rect": {"x": 0, "y": round(h * 0.9), "width": w, "height": round(h * 0.1)},
                 "style": {"fill": "#FFFFFF", "spacing": 0},
                 "children": [
                     {
                         "name": "NavHome",
                         "type": "button",
-                        "rect": {"x": 0, "y": 0, "width": 270, "height": 124},
-                        "style": {"text_content": "首页", "font_size": 16, "text_color": "#999999"},
+                        "rect": {"x": 0, "y": 0, "width": round(w * 0.5), "height": round(h * 0.1)},
+                        "style": {"text_content": "首页", "font_size": round(h * 0.015), "text_color": "#999999"},
                         "children": []
                     },
                     {
                         "name": "NavSettings",
                         "type": "button",
-                        "rect": {"x": 270, "y": 0, "width": 270, "height": 124},
-                        "style": {"text_content": "设置", "font_size": 16, "text_color": "#2196F3"},
+                        "rect": {"x": round(w * 0.5), "y": 0, "width": round(w * 0.5), "height": round(h * 0.1)},
+                        "style": {"text_content": "设置", "font_size": round(h * 0.015), "text_color": "#2196F3"},
                         "children": []
                     }
                 ]
@@ -158,7 +138,7 @@ def _build_example() -> str:
 def build_system_prompt(canvas_w: int = 1920, canvas_h: int = 1080) -> str:
     """构建 system prompt：Figma 风格设计 JSON 输出规则。"""
     type_ref = _build_type_reference()
-    example = _build_example()
+    example = _build_example(canvas_w, canvas_h)
 
     extra_rules = ""
     if _EXTRA_RULES_PATH.is_file():

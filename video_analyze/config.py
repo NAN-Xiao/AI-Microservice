@@ -108,6 +108,12 @@ def _build_settings() -> "Settings":
     service_name = str(_service_get(c, "name", "video-analyze"))
     upload_dir = _resolve_upload_dir(c)
 
+    log_to_file_env = os.environ.get("LOG_TO_FILE")
+    if log_to_file_env is not None:
+        log_to_file = log_to_file_env.lower() in ("1", "true", "yes")
+    else:
+        log_to_file = bool(_server_get(c, "log_to_file", True))
+
     return Settings(
         host=host,
         port=port,
@@ -118,6 +124,7 @@ def _build_settings() -> "Settings":
         timeout=timeout,
         service_name=service_name,
         upload_dir=upload_dir,
+        log_to_file=log_to_file,
         http_client=None,
     )
 
@@ -133,6 +140,7 @@ class Settings:
     timeout: int
     service_name: str
     upload_dir: Path
+    log_to_file: bool
     http_client: Optional[httpx.AsyncClient]
 
 

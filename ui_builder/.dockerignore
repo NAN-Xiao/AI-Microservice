@@ -7,3 +7,4 @@ settings.yaml
 .gitignore
 *.md
 scripts/
+logs/

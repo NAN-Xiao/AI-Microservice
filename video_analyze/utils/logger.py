@@ -51,38 +51,40 @@ class _ColorFormatter(logging.Formatter):
 
 def setup_logging() -> None:
     """初始化日志系统，应在应用启动时调用一次。"""
-    _LOG_DIR.mkdir(parents=True, exist_ok=True)
-    _REQUEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
-
     root = logging.getLogger()
     root.setLevel(logging.DEBUG if settings.debug else logging.INFO)
 
     # 清除默认 handler（避免 uvicorn 重复输出）
     root.handlers.clear()
 
-    # 控制台 handler
+    # 控制台 handler（Docker 中这是主要输出，docker logs 能直接看到）
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG if settings.debug else logging.INFO)
     console.setFormatter(_ColorFormatter())
     root.addHandler(console)
 
-    # 文件 handler —— 按天滚动，保留 30 天
-    file_handler = TimedRotatingFileHandler(
-        filename=str(_LOG_DIR / "video_analyze.log"),
-        when="midnight",
-        interval=1,
-        backupCount=30,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(logging.DEBUG)
-    file_handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    root.addHandler(file_handler)
+    # 文件 handler —— 按天滚动，保留 30 天（Docker 中可关闭，靠 stdout 收集）
+    if settings.log_to_file:
+        _LOG_DIR.mkdir(parents=True, exist_ok=True)
+        _REQUEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
+        file_handler = TimedRotatingFileHandler(
+            filename=str(_LOG_DIR / "video_analyze.log"),
+            when="midnight",
+            interval=1,
+            backupCount=30,
+            encoding="utf-8",
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+        )
+        root.addHandler(file_handler)
 
 
 def log_request(task_id: str, data: dict) -> None:
-    """将单次分析请求的完整信息写入独立 JSON 文件。"""
+    """将单次分析请求的完整信息写入独立 JSON 文件（仅 log_to_file 开启时）。"""
+    if not settings.log_to_file:
+        return
     _REQUEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     filepath = _REQUEST_LOG_DIR / f"{ts}_{task_id}.json"

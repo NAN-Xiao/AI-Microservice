@@ -1,5 +1,5 @@
 """
-UI Builder 微服务：接收 UI 示意图 → Gemini 分析 → 清洗映射 → 返回 Unity 预制体数据
+UI Builder：上传 UI 示意图，分析并生成 Unity 预制体数据
 """
 
 import logging
@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="UI Builder",
-    description="UI 示意图分析微服务：上传图片 → Gemini 分析 → Unity 预制体数据",
+    description="上传图片，AI 分析生成 Unity 预制体数据",
     lifespan=lifespan,
 )
 
