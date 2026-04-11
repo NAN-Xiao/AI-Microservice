@@ -1,0 +1,21 @@
+# ui_builder 配置模板
+# 复制为 settings.yaml 后填写真实密钥
+# Docker 部署时通过环境变量覆盖，此文件提供默认值
+
+server:
+  host: "0.0.0.0"
+  port: 9002
+  debug: false
+  log_to_file: true
+  # Docker 中一般不用 SSL（由 Nginx / 网关卸载），留空即可
+  ssl_certfile: ""
+  ssl_keyfile: ""
+
+llm:
+  api_url: "https://aikey.elex-tech.com/v1"
+  api_key: ""          # 必填 —— 通过环境变量 LLM_API_KEY 注入
+  model: "qwen3.5-plus"
+  timeout_seconds: 600
+
+service:
+  name: "ui-builder"

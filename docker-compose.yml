@@ -1,0 +1,122 @@
+version: "3.9"
+
+# ============================================================
+#  AI-Microservice —— Docker Compose 部署
+#  架构: Nginx → 各微服务（FastAPI Token 鉴权）+ Nacos 服务发现
+#
+#  启动全部服务:  docker compose up -d --build
+#  只启动某服务:  docker compose up -d ui-builder
+#  查看日志:      docker compose logs -f ui-builder
+#  停止:          docker compose down
+# ============================================================
+
+services:
+  # ==================== 基础设施 ====================
+
+  nacos:
+    image: nacos/nacos-server:v2.3.2
+    container_name: nacos
+    restart: unless-stopped
+    environment:
+      - MODE=standalone
+      - NACOS_AUTH_ENABLE=true
+      - NACOS_AUTH_TOKEN=${NACOS_AUTH_TOKEN:-your-secret-token-at-least-32-chars}
+      - NACOS_AUTH_IDENTITY_KEY=serverIdentity
+      - NACOS_AUTH_IDENTITY_VALUE=${NACOS_IDENTITY_VALUE:-your-identity}
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    volumes:
+      - nacos-data:/home/nacos/data
+      - nacos-logs:/home/nacos/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    networks:
+      - ai-net
+
+  # ==================== 业务服务 ====================
+
+  # ---------- UI Builder ----------
+  ui-builder:
+    build:
+      context: ./ui_builder
+      dockerfile: Dockerfile
+    container_name: ui-builder
+    restart: unless-stopped
+    ports:
+      - "9002:9002"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9002
+      - DEBUG=false
+      - LOG_TO_FILE=true
+      # LLM 配置 —— 部署时必须填写
+      - LLM_API_URL=https://aikey.elex-tech.com/v1
+      - LLM_API_KEY=${UI_BUILDER_LLM_KEY:?请设置 UI_BUILDER_LLM_KEY}
+      - LLM_MODEL=qwen3.5-plus
+      - LLM_TIMEOUT=600
+      # 鉴权：类似 LLM API 的 Bearer Token 模式，留空则关闭鉴权
+      - AUTH_TOKENS=${AUTH_TOKENS:-}
+      # Nacos 服务发现（自动注册/注销）
+      - NACOS_ADDR=nacos:8848
+    volumes:
+      # 日志持久化到宿主机
+      - ./ui_builder/logs:/app/logs
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9002/api/ui-builder/health/live')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - ai-net
+
+  # ---------- Video Analyze ----------
+  video-analyze:
+    build:
+      context: ./video_analyze
+      dockerfile: Dockerfile
+    container_name: video-analyze
+    restart: unless-stopped
+    ports:
+      - "9001:9001"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9001
+      - DEBUG=false
+      - LOG_TO_FILE=true
+      - LLM_API_URL=https://aikey.elex-tech.com/v1
+      - LLM_API_KEY=${VIDEO_ANALYZE_LLM_KEY:?请设置 VIDEO_ANALYZE_LLM_KEY}
+      - LLM_MODEL=qwen3.5-plus
+      - LLM_TIMEOUT=600
+      - AUTH_TOKENS=${AUTH_TOKENS:-}
+      - NACOS_ADDR=nacos:8848
+    volumes:
+      - ./video_analyze/logs:/app/logs
+      - ./video_analyze/tmp_uploads:/app/tmp_uploads
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9001/api/video-analyze/health/live')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - ai-net
+
+volumes:
+  nacos-data:
+  nacos-logs:
+
+networks:
+  ai-net:
+    driver: bridge

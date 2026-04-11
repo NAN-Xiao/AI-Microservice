@@ -1,10 +1,11 @@
 """
 UI Builder 微服务：上传 UI 示意图，分析并生成 Unity 预制体数据。
 
-部署架构：Docker → Nacos 注册 → Nginx/Gateway 反向代理。
+部署架构：Docker → Nacos 注册 → Nginx 反向代理 → FastAPI Token 鉴权。
 """
 
 import logging
+import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -14,6 +15,11 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.config import settings
+from app.middleware.auth import (
+    TokenAuthMiddleware,
+    start_nacos_token_watcher,
+    stop_nacos_token_watcher,
+)
 from app.routers import analyze, health
 from app.routers.health import set_ready
 from app.utils.logger import setup_logging
@@ -22,6 +28,54 @@ from app.utils.logger import setup_logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
+_NACOS_ADDR = os.environ.get("NACOS_ADDR", "").strip()
+
+
+# ─── Nacos 服务注册 / 注销 ──────────────────────────────
+
+async def _register_to_nacos():
+    """启动时向 Nacos 注册当前服务实例"""
+    if not _NACOS_ADDR:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.post(
+                f"http://{_NACOS_ADDR}/nacos/v1/ns/instance",
+                params={
+                    "serviceName": settings.service_name,
+                    "ip": settings.host,
+                    "port": settings.port,
+                    "healthy": "true",
+                    "weight": "1.0",
+                    "groupName": "AI_MICROSERVICE",
+                },
+            )
+        logger.info("已注册到 Nacos: %s (服务名=%s)", _NACOS_ADDR, settings.service_name)
+    except Exception as e:
+        logger.warning("Nacos 注册失败（不影响服务运行）: %s", e)
+
+
+async def _deregister_from_nacos():
+    """关闭时从 Nacos 注销"""
+    if not _NACOS_ADDR:
+        return
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            await client.delete(
+                f"http://{_NACOS_ADDR}/nacos/v1/ns/instance",
+                params={
+                    "serviceName": settings.service_name,
+                    "ip": settings.host,
+                    "port": settings.port,
+                    "groupName": "AI_MICROSERVICE",
+                },
+            )
+        logger.info("已从 Nacos 注销")
+    except Exception:
+        pass
+
+
+# ─── Lifespan ───────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,6 +96,10 @@ async def lifespan(app: FastAPI):
     # ⚠ 任务存储为内存模式，多实例部署时各实例的任务状态不共享
     logger.info("任务存储: 内存模式（单实例）")
 
+    # Nacos 注册 + Token 配置监听
+    await _register_to_nacos()
+    await start_nacos_token_watcher(settings.service_name)
+
     # 标记就绪 —— Nginx/Nacos/K8s 探针开始放行流量
     set_ready(True)
     logger.info("服务就绪，开始接受请求")
@@ -51,6 +109,9 @@ async def lifespan(app: FastAPI):
     # ─── 优雅停机 ───────────────────────────────────────
     logger.info("收到停机信号，开始优雅停机...")
     set_ready(False)
+
+    await stop_nacos_token_watcher()
+    await _deregister_from_nacos()
 
     if settings.http_client is not None:
         await settings.http_client.aclose()
@@ -63,6 +124,9 @@ app = FastAPI(
     description="上传图片，AI 分析生成 Unity 预制体数据",
     lifespan=lifespan,
 )
+
+# ─── 鉴权中间件（AUTH_TOKENS 为空时自动跳过）─────────────
+app.add_middleware(TokenAuthMiddleware)
 
 
 # ─── 全局请求日志中间件 ─────────────────────────────────
