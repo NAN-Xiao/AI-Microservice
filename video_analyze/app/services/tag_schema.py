@@ -6,6 +6,8 @@
 
 import json
 import logging
+import os
+import tempfile
 from pathlib import Path
 
 from app.config import PROJECT_ROOT
@@ -25,6 +27,10 @@ _cached_prompt: str = ""
 def get_tag_schema() -> dict:
     """获取当前标签体系，文件更新后自动重新加载。"""
     global _cached_tags, _cached_tags_mtime
+
+    if not _TAGS_FILE.is_file():
+        logger.error("标签文件不存在: %s", _TAGS_FILE)
+        raise FileNotFoundError(f"标签文件不存在: {_TAGS_FILE}")
 
     current_mtime = _TAGS_FILE.stat().st_mtime
     if _cached_tags is None or current_mtime != _cached_tags_mtime:
@@ -48,8 +54,15 @@ def update_tag_schema(new_tags: dict) -> dict:
     if errors:
         raise ValueError(f"标签模板格式错误: {'; '.join(errors)}")
 
-    with open(_TAGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(new_tags, f, ensure_ascii=False, indent=2)
+    # 原子写：先写临时文件再替换，防止中途崩溃导致文件损坏
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=_RESOURCES_DIR, suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            json.dump(new_tags, f, ensure_ascii=False, indent=2)
+        Path(tmp_path).replace(_TAGS_FILE)
+    except Exception:
+        Path(tmp_path).unlink(missing_ok=True)
+        raise
 
     _cached_tags = new_tags
     _cached_tags_mtime = _TAGS_FILE.stat().st_mtime

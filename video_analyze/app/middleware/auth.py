@@ -152,9 +152,9 @@ async def stop_nacos_token_watcher():
         _nacos_poll_task = None
 
 
-# ─── 不需要鉴权的路径关键词 ─────────────────────────────
+# ─── 不需要鉴权的公开路径 ───────────────────────────────
 
-_PUBLIC_KEYWORDS = ("/health", "/docs", "/openapi.json")
+_PUBLIC_PATHS = ("/health", "/docs", "/openapi.json")
 
 
 # ─── 中间件 ─────────────────────────────────────────────
@@ -165,9 +165,9 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if not _ALLOWED_TOKENS:
             return await call_next(request)
 
-        # 公开路径放行（健康检查、Swagger 文档）
+        # 公开路径放行（健康检查、Swagger 文档）—— 仅匹配路径尾段，防止查询参数绕过
         path = request.url.path
-        if any(kw in path for kw in _PUBLIC_KEYWORDS):
+        if any(path.endswith(p) for p in _PUBLIC_PATHS):
             return await call_next(request)
 
         # 提取 Bearer token

@@ -63,12 +63,31 @@ class TaskStore:
         self._lock = asyncio.Lock()
         self._max_tasks = max_tasks
         self._expire_seconds = expire_seconds
+        self._cleanup_handle: asyncio.TimerHandle | None = None
+
+    def start_periodic_cleanup(self, loop: asyncio.AbstractEventLoop | None = None) -> None:
+        """启动定期清理（每 60 秒），在 lifespan 中调用。"""
+        interval = 60
+
+        def _schedule():
+            self._cleanup_expired_sync()
+            self._cleanup_handle = asyncio.get_event_loop().call_later(interval, _schedule)
+
+        self._cleanup_handle = (loop or asyncio.get_event_loop()).call_later(interval, _schedule)
+
+    def stop_periodic_cleanup(self) -> None:
+        if self._cleanup_handle:
+            self._cleanup_handle.cancel()
+            self._cleanup_handle = None
 
     async def create(self, video_url: str, *, custom_tags: dict | None = None) -> Task:
         task_id = uuid.uuid4().hex
         task = Task(task_id=task_id, video_url=video_url, custom_tags=custom_tags)
         async with self._lock:
             self._cleanup_expired()
+            # 超过上限时驱逐最旧的已完成/失败任务
+            if len(self._tasks) >= self._max_tasks:
+                self._evict_oldest()
             self._tasks[task_id] = task
         logger.info("任务已创建: %s -> %s", task_id[:8], video_url)
         return task
@@ -117,6 +136,24 @@ class TaskStore:
             del self._tasks[tid]
         if expired:
             logger.debug("清理过期任务: %d 个", len(expired))
+
+    def _cleanup_expired_sync(self) -> None:
+        """非 async 版本，供定时器回调使用。"""
+        self._cleanup_expired()
+
+    def _evict_oldest(self) -> None:
+        """驱逐最旧的已结束任务（completed/failed），腾出空间。"""
+        finished = [
+            (tid, t) for tid, t in self._tasks.items()
+            if t.status in (TaskStatus.COMPLETED, TaskStatus.FAILED)
+        ]
+        if not finished:
+            return
+        finished.sort(key=lambda x: x[1].created_at)
+        to_remove = finished[: max(1, len(finished) // 4)]  # 驱逐 25% 或至少 1 个
+        for tid, _ in to_remove:
+            del self._tasks[tid]
+        logger.debug("驱逐旧任务: %d 个", len(to_remove))
 
 
 task_store = TaskStore()

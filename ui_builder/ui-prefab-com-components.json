@@ -1,0 +1,552 @@
+{
+  "root": "Assets/Res/ui/prefab/com",
+  "total": 112,
+  "categories": [
+    {
+      "directory": "",
+      "label": "根目录/未分组",
+      "count": 1,
+      "prefabs": [
+        {
+          "name": "upgrade_property_item",
+          "path": "Assets/Res/ui/prefab/com/upgrade_property_item.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_button_pre",
+      "label": "按钮",
+      "count": 24,
+      "prefabs": [
+        {
+          "name": "com_button_l_1line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_1line_blue.prefab"
+        },
+        {
+          "name": "com_button_l_1line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_1line_green.prefab"
+        },
+        {
+          "name": "com_button_l_1line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_1line_red.prefab"
+        },
+        {
+          "name": "com_button_l_1line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_1line_yellow.prefab"
+        },
+        {
+          "name": "com_button_l_2line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_2line_blue.prefab"
+        },
+        {
+          "name": "com_button_l_2line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_2line_green.prefab"
+        },
+        {
+          "name": "com_button_l_2line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_2line_red.prefab"
+        },
+        {
+          "name": "com_button_l_2line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_l_2line_yellow.prefab"
+        },
+        {
+          "name": "com_button_m_1line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_1line_blue.prefab"
+        },
+        {
+          "name": "com_button_m_1line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_1line_green.prefab"
+        },
+        {
+          "name": "com_button_m_1line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_1line_red.prefab"
+        },
+        {
+          "name": "com_button_m_1line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_1line_yellow.prefab"
+        },
+        {
+          "name": "com_button_m_2line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_2line_blue.prefab"
+        },
+        {
+          "name": "com_button_m_2line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_2line_green.prefab"
+        },
+        {
+          "name": "com_button_m_2line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_2line_red.prefab"
+        },
+        {
+          "name": "com_button_m_2line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_m_2line_yellow.prefab"
+        },
+        {
+          "name": "com_button_xl_1line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_1line_blue.prefab"
+        },
+        {
+          "name": "com_button_xl_1line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_1line_green.prefab"
+        },
+        {
+          "name": "com_button_xl_1line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_1line_red.prefab"
+        },
+        {
+          "name": "com_button_xl_1line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_1line_yellow.prefab"
+        },
+        {
+          "name": "com_button_xl_2line_blue",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_2line_blue.prefab"
+        },
+        {
+          "name": "com_button_xl_2line_green",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_2line_green.prefab"
+        },
+        {
+          "name": "com_button_xl_2line_red",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_2line_red.prefab"
+        },
+        {
+          "name": "com_button_xl_2line_yellow",
+          "path": "Assets/Res/ui/prefab/com/com_button_pre/com_button_xl_2line_yellow.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_goods_pre",
+      "label": "通用道具展示",
+      "count": 4,
+      "prefabs": [
+        {
+          "name": "com_goods_icon_item",
+          "path": "Assets/Res/ui/prefab/com/com_goods_pre/com_goods_icon_item.prefab"
+        },
+        {
+          "name": "com_goods_item_simple",
+          "path": "Assets/Res/ui/prefab/com/com_goods_pre/com_goods_item_simple.prefab"
+        },
+        {
+          "name": "com_goods_item_simple2",
+          "path": "Assets/Res/ui/prefab/com/com_goods_pre/com_goods_item_simple2.prefab"
+        },
+        {
+          "name": "goods_item_simple",
+          "path": "Assets/Res/ui/prefab/com/com_goods_pre/goods_item_simple.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_hero_head_pre",
+      "label": "武将/宠物头像",
+      "count": 7,
+      "prefabs": [
+        {
+          "name": "com_head_pet",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/com_head_pet.prefab"
+        },
+        {
+          "name": "com_head_pet_yuan",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/com_head_pet_yuan.prefab"
+        },
+        {
+          "name": "com_head_soldier",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/com_head_soldier.prefab"
+        },
+        {
+          "name": "com_hero_head",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/com_hero_head.prefab"
+        },
+        {
+          "name": "daily_gift_hero_card_item",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/daily_gift_hero_card_item.prefab"
+        },
+        {
+          "name": "hero_list_head_item",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/hero_list_head_item.prefab"
+        },
+        {
+          "name": "mythical_beasts_head",
+          "path": "Assets/Res/ui/prefab/com/com_hero_head_pre/mythical_beasts_head.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_icon_player_pre",
+      "label": "玩家头像/玩家信息",
+      "count": 12,
+      "prefabs": [
+        {
+          "name": "com_alliance_ranking_info_item",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_alliance_ranking_info_item.prefab"
+        },
+        {
+          "name": "com_icon_player_avatar_name",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_icon_player_avatar_name.prefab"
+        },
+        {
+          "name": "com_icon_player_s",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_icon_player_s.prefab"
+        },
+        {
+          "name": "com_icon_player_xl",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_icon_player_xl.prefab"
+        },
+        {
+          "name": "com_monster_head",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_monster_head.prefab"
+        },
+        {
+          "name": "com_player_info_panel",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_info_panel.prefab"
+        },
+        {
+          "name": "com_player_ranking_first_item",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_first_item.prefab"
+        },
+        {
+          "name": "com_player_ranking_info_item",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_info_item.prefab"
+        },
+        {
+          "name": "com_player_ranking_info_item_alliance",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_info_item_alliance.prefab"
+        },
+        {
+          "name": "com_player_ranking_info_item_arena",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_info_item_arena.prefab"
+        },
+        {
+          "name": "com_player_ranking_info_item_power",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_info_item_power.prefab"
+        },
+        {
+          "name": "com_player_ranking_info_item_self",
+          "path": "Assets/Res/ui/prefab/com/com_icon_player_pre/com_player_ranking_info_item_self.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_item_pre",
+      "label": "通用条目/物品项",
+      "count": 13,
+      "prefabs": [
+        {
+          "name": "com_alliance_flag_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_alliance_flag_item.prefab"
+        },
+        {
+          "name": "com_btn_bubble",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_btn_bubble.prefab"
+        },
+        {
+          "name": "com_bubble_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_bubble_item.prefab"
+        },
+        {
+          "name": "com_item_get_more_res_buy_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_get_more_res_buy_item.prefab"
+        },
+        {
+          "name": "com_item_get_more_res_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_get_more_res_item.prefab"
+        },
+        {
+          "name": "com_item_jump_to_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_jump_to_item.prefab"
+        },
+        {
+          "name": "com_item_jump_to_panel",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_jump_to_panel.prefab"
+        },
+        {
+          "name": "com_item_l",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_l.prefab"
+        },
+        {
+          "name": "com_item_m",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_m.prefab"
+        },
+        {
+          "name": "com_item_recharge_quick_buy_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_item_recharge_quick_buy_item.prefab"
+        },
+        {
+          "name": "com_prompt_bar_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_prompt_bar_item.prefab"
+        },
+        {
+          "name": "com_research_item",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_research_item.prefab"
+        },
+        {
+          "name": "com_research_node_root",
+          "path": "Assets/Res/ui/prefab/com/com_item_pre/com_research_node_root.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_panel_pre",
+      "label": "面板/弹窗",
+      "count": 13,
+      "prefabs": [
+        {
+          "name": "com_black_screen_panel",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_black_screen_panel.prefab"
+        },
+        {
+          "name": "com_detail_btn",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_detail_btn.prefab"
+        },
+        {
+          "name": "com_film_screen_panel",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_film_screen_panel.prefab"
+        },
+        {
+          "name": "com_get_more_res_popup",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_get_more_res_popup.prefab"
+        },
+        {
+          "name": "com_item_use_reconfirm_popup",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_item_use_reconfirm_popup.prefab"
+        },
+        {
+          "name": "com_panel_exchange_confirm",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_panel_exchange_confirm.prefab"
+        },
+        {
+          "name": "com_panel_popup",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_panel_popup.prefab"
+        },
+        {
+          "name": "com_panel_popup_confirm",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_panel_popup_confirm.prefab"
+        },
+        {
+          "name": "com_panel_popup_s",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_panel_popup_s.prefab"
+        },
+        {
+          "name": "com_public_bg",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_public_bg.prefab"
+        },
+        {
+          "name": "com_reward_panel",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_reward_panel.prefab"
+        },
+        {
+          "name": "com_speed_up_list_popup",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/com_speed_up_list_popup.prefab"
+        },
+        {
+          "name": "top_resource",
+          "path": "Assets/Res/ui/prefab/com/com_panel_pre/top_resource.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_red_dot_pre",
+      "label": "红点",
+      "count": 3,
+      "prefabs": [
+        {
+          "name": "com_reddot_no_num",
+          "path": "Assets/Res/ui/prefab/com/com_red_dot_pre/com_reddot_no_num.prefab"
+        },
+        {
+          "name": "com_reddot_num",
+          "path": "Assets/Res/ui/prefab/com/com_red_dot_pre/com_reddot_num.prefab"
+        },
+        {
+          "name": "com_reddot_num_m",
+          "path": "Assets/Res/ui/prefab/com/com_red_dot_pre/com_reddot_num_m.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_reward",
+      "label": "奖励展示",
+      "count": 1,
+      "prefabs": [
+        {
+          "name": "com_rank_rewards_item",
+          "path": "Assets/Res/ui/prefab/com/com_reward/com_rank_rewards_item.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_schedule",
+      "label": "进度条/日程",
+      "count": 2,
+      "prefabs": [
+        {
+          "name": "com_schedule",
+          "path": "Assets/Res/ui/prefab/com/com_schedule/com_schedule.prefab"
+        },
+        {
+          "name": "com_schedule2",
+          "path": "Assets/Res/ui/prefab/com/com_schedule/com_schedule2.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_slider_pre",
+      "label": "滑条/开关",
+      "count": 5,
+      "prefabs": [
+        {
+          "name": "choose",
+          "path": "Assets/Res/ui/prefab/com/com_slider_pre/choose.prefab"
+        },
+        {
+          "name": "com_slider_number",
+          "path": "Assets/Res/ui/prefab/com/com_slider_pre/com_slider_number.prefab"
+        },
+        {
+          "name": "com_slider_number2",
+          "path": "Assets/Res/ui/prefab/com/com_slider_pre/com_slider_number2.prefab"
+        },
+        {
+          "name": "com_switch",
+          "path": "Assets/Res/ui/prefab/com/com_slider_pre/com_switch.prefab"
+        },
+        {
+          "name": "slider",
+          "path": "Assets/Res/ui/prefab/com/com_slider_pre/slider.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_text_pre",
+      "label": "文本/标题/提示文案",
+      "count": 7,
+      "prefabs": [
+        {
+          "name": "com_nameplate_item",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/com_nameplate_item.prefab"
+        },
+        {
+          "name": "com_prompt_battle_item",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/com_prompt_battle_item.prefab"
+        },
+        {
+          "name": "com_prompt_word_item",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/com_prompt_word_item.prefab"
+        },
+        {
+          "name": "com_prompt_words_image_up_item",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/com_prompt_words_image_up_item.prefab"
+        },
+        {
+          "name": "com_shadow_txt",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/com_shadow_txt.prefab"
+        },
+        {
+          "name": "msg_panel",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/msg_panel.prefab"
+        },
+        {
+          "name": "ui_title_group",
+          "path": "Assets/Res/ui/prefab/com/com_text_pre/ui_title_group.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_tips_pre",
+      "label": "Tips/气泡/说明",
+      "count": 15,
+      "prefabs": [
+        {
+          "name": "com_icon_introduce_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_icon_introduce_tips.prefab"
+        },
+        {
+          "name": "com_icon_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_icon_tips.prefab"
+        },
+        {
+          "name": "com_intelligence_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_intelligence_tips.prefab"
+        },
+        {
+          "name": "com_mythical_beasts_skill_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_mythical_beasts_skill_tips.prefab"
+        },
+        {
+          "name": "com_mythical_beasts_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_mythical_beasts_tips.prefab"
+        },
+        {
+          "name": "com_pet_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_pet_tips.prefab"
+        },
+        {
+          "name": "com_player_emoji_bubble_s",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_player_emoji_bubble_s.prefab"
+        },
+        {
+          "name": "com_player_emoji_bubble_xl",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_player_emoji_bubble_xl.prefab"
+        },
+        {
+          "name": "com_power_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_power_tips.prefab"
+        },
+        {
+          "name": "com_power_tips2",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_power_tips2.prefab"
+        },
+        {
+          "name": "com_power_tips3",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_power_tips3.prefab"
+        },
+        {
+          "name": "com_scroll_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_scroll_tips.prefab"
+        },
+        {
+          "name": "com_skill_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_skill_tips.prefab"
+        },
+        {
+          "name": "com_soldier_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_soldier_tips.prefab"
+        },
+        {
+          "name": "com_star_tips",
+          "path": "Assets/Res/ui/prefab/com/com_tips_pre/com_star_tips.prefab"
+        }
+      ]
+    },
+    {
+      "directory": "com_toggle_pre",
+      "label": "Toggle/页签",
+      "count": 5,
+      "prefabs": [
+        {
+          "name": "com_bottom_toggle",
+          "path": "Assets/Res/ui/prefab/com/com_toggle_pre/com_bottom_toggle.prefab"
+        },
+        {
+          "name": "com_toggle_menu01",
+          "path": "Assets/Res/ui/prefab/com/com_toggle_pre/com_toggle_menu01.prefab"
+        },
+        {
+          "name": "com_toggle_menu02",
+          "path": "Assets/Res/ui/prefab/com/com_toggle_pre/com_toggle_menu02.prefab"
+        },
+        {
+          "name": "com_toggle_menu03",
+          "path": "Assets/Res/ui/prefab/com/com_toggle_pre/com_toggle_menu03.prefab"
+        },
+        {
+          "name": "com_toggle_menu04",
+          "path": "Assets/Res/ui/prefab/com/com_toggle_pre/com_toggle_menu04.prefab"
+        }
+      ]
+    }
+  ]
+}
