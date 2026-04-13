@@ -182,8 +182,13 @@ publish_python_service() {
     # 整体上传（scp 会把本地目录内容传过去）
     do_scp "${local_dir}/." "${REMOTE_USER}@${REMOTE_HOST}:${remote_dir}/"
 
-    # 4. 赋予 start.sh 执行权限（如果存在）
-    do_ssh "[ -f ${remote_dir}/start.sh ] && chmod +x ${remote_dir}/start.sh || true"
+    # 4. 修复行尾（Windows \r\n → Unix \n）+ 赋予执行权限
+    do_ssh "bash -lc '
+        cd ${remote_dir}
+        for f in start.sh *.sh; do
+            [ -f \"\$f\" ] && sed -i \"s/\\r//\" \"\$f\" && chmod +x \"\$f\"
+        done
+    '"
 
     # 5. 安装/更新 Python 依赖
     blue "更新远程 Python 依赖..."
