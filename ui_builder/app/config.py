@@ -100,6 +100,8 @@ def _build_settings() -> "Settings":
     api_key = str(_from_env("LLM_API_KEY", _llm_get(c, "api_key", "")))
     model = str(_from_env("LLM_MODEL", _llm_get(c, "model", "")))
     timeout = _from_env("LLM_TIMEOUT", _llm_get(c, "timeout_seconds", 300), int)
+    image_max_long_side = _from_env("LLM_IMAGE_MAX_LONG_SIDE", _llm_get(c, "image_max_long_side", 1024), int)
+    image_quality = _from_env("LLM_IMAGE_QUALITY", _llm_get(c, "image_quality", 80), int)
     service_name = str(_service_get(c, "name", "ui-builder"))
 
     # SSL 证书路径（相对于项目根目录）
@@ -124,6 +126,8 @@ def _build_settings() -> "Settings":
         api_key=api_key,
         model=model,
         timeout=timeout,
+        image_max_long_side=image_max_long_side,
+        image_quality=image_quality,
         service_name=service_name,
         ssl_certfile=ssl_certfile,
         ssl_keyfile=ssl_keyfile,
@@ -149,6 +153,8 @@ class Settings:
     api_key: str
     model: str
     timeout: int
+    image_max_long_side: int
+    image_quality: int
     service_name: str
     ssl_certfile: str
     ssl_keyfile: str
