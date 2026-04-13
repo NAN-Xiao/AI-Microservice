@@ -6,8 +6,8 @@ import struct
 from PIL import Image
 
 
-def compress_for_llm(data: bytes, *, max_long_side: int = 1280,
-                     quality: int = 85) -> tuple[bytes, str]:
+def compress_for_llm(data: bytes, *, max_long_side: int = 1024,
+                     quality: int = 80) -> tuple[bytes, str]:
     """将图片缩放到长边 ≤ max_long_side 并转为 JPEG。
 
     返回 (压缩后字节, 新文件名)。

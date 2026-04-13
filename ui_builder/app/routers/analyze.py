@@ -121,11 +121,15 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str,
         task_store.update_step(task_id, "思考中")
         log.step(rid, "构建 Prompt", f"图片 {img_w}x{img_h} → 目标 {target_w}x{target_h}")
 
-        # 压缩图片再送入 LLM（缩放长边 ≤ 1280 + JPEG 85%）
+        # 压缩图片再送入 LLM
         orig_kb = len(image_bytes) / 1024
-        image_bytes, filename = compress_for_llm(image_bytes)
+        image_bytes, filename = compress_for_llm(
+            image_bytes,
+            max_long_side=settings.image_max_long_side,
+            quality=settings.image_quality,
+        )
         comp_kb = len(image_bytes) / 1024
-        log.step(rid, "图片压缩", f"{orig_kb:.0f}KB → {comp_kb:.0f}KB")
+        log.step(rid, "图片压缩", f"{orig_kb:.0f}KB → {comp_kb:.0f}KB (max_side={settings.image_max_long_side})")
 
         system_prompt = build_system_prompt(img_w, img_h)
         user_prompt = build_user_prompt(extra_prompt)
@@ -240,9 +244,13 @@ async def analyze(
 
         # 压缩图片再送入 LLM
         orig_kb = len(image_bytes) / 1024
-        image_bytes, filename = compress_for_llm(image_bytes)
+        image_bytes, filename = compress_for_llm(
+            image_bytes,
+            max_long_side=settings.image_max_long_side,
+            quality=settings.image_quality,
+        )
         comp_kb = len(image_bytes) / 1024
-        log.step(rid, "图片压缩", f"{orig_kb:.0f}KB → {comp_kb:.0f}KB")
+        log.step(rid, "图片压缩", f"{orig_kb:.0f}KB → {comp_kb:.0f}KB (max_side={settings.image_max_long_side})")
 
         system_prompt = build_system_prompt(img_w, img_h)
         user_prompt = build_user_prompt(extra_prompt)
