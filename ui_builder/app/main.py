@@ -30,49 +30,28 @@ logger = logging.getLogger(__name__)
 
 _NACOS_ADDR = os.environ.get("NACOS_ADDR", "").strip()
 
+# ─── Nacos 服务注册（完整版：含心跳） ─────────────────────
 
-# ─── Nacos 服务注册 / 注销 ──────────────────────────────
+# 优先使用 NACOS_ADDR 环境变量（兼容 docker-compose），否则使用 config 中的配置
+_nacos_server = _NACOS_ADDR if _NACOS_ADDR else settings.nacos_server_addr
+_nacos_enabled = bool(_NACOS_ADDR) or settings.nacos_enabled.lower() in ("1", "true", "yes")
 
-async def _register_to_nacos():
-    """启动时向 Nacos 注册当前服务实例"""
-    if not _NACOS_ADDR:
-        return
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.post(
-                f"http://{_NACOS_ADDR}/nacos/v1/ns/instance",
-                params={
-                    "serviceName": settings.service_name,
-                    "ip": settings.host,
-                    "port": settings.port,
-                    "healthy": "true",
-                    "weight": "1.0",
-                    "groupName": "AI_MICROSERVICE",
-                },
-            )
-        logger.info("已注册到 Nacos: %s (服务名=%s)", _NACOS_ADDR, settings.service_name)
-    except Exception as e:
-        logger.warning("Nacos 注册失败（不影响服务运行）: %s", e)
+# 延迟导入，nacos_registry.py 位于项目根目录（ui_builder/）
+import sys as _sys
+from pathlib import Path as _Path
+_sys.path.insert(0, str(_Path(__file__).resolve().parent.parent))
+from nacos_registry import NacosRegistry
 
-
-async def _deregister_from_nacos():
-    """关闭时从 Nacos 注销"""
-    if not _NACOS_ADDR:
-        return
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            await client.delete(
-                f"http://{_NACOS_ADDR}/nacos/v1/ns/instance",
-                params={
-                    "serviceName": settings.service_name,
-                    "ip": settings.host,
-                    "port": settings.port,
-                    "groupName": "AI_MICROSERVICE",
-                },
-            )
-        logger.info("已从 Nacos 注销")
-    except Exception:
-        pass
+nacos = NacosRegistry(
+    service_name=settings.nacos_service_name if hasattr(settings, 'nacos_service_name') else settings.service_name,
+    service_port=settings.port,
+    server_addr=_nacos_server,
+    namespace=settings.nacos_namespace if hasattr(settings, 'nacos_namespace') else "",
+    group=settings.nacos_group if hasattr(settings, 'nacos_group') else "DEFAULT_GROUP",
+    username=settings.nacos_username if hasattr(settings, 'nacos_username') else "nacos",
+    password=settings.nacos_password if hasattr(settings, 'nacos_password') else "nacos",
+    enabled=_nacos_enabled,
+)
 
 
 # ─── Lifespan ───────────────────────────────────────────
@@ -96,8 +75,8 @@ async def lifespan(app: FastAPI):
     # ⚠ 任务存储为内存模式，多实例部署时各实例的任务状态不共享
     logger.info("任务存储: 内存模式（单实例）")
 
-    # Nacos 注册 + Token 配置监听
-    await _register_to_nacos()
+    # Nacos 注册（含心跳）+ Token 配置监听
+    await nacos.register()
     await start_nacos_token_watcher(settings.service_name)
 
     # 标记就绪 —— Nginx/Nacos/K8s 探针开始放行流量
@@ -111,7 +90,7 @@ async def lifespan(app: FastAPI):
     set_ready(False)
 
     await stop_nacos_token_watcher()
-    await _deregister_from_nacos()
+    await nacos.deregister()
 
     if settings.http_client is not None:
         await settings.http_client.aclose()

@@ -1,10 +1,13 @@
 package com.ai.gateway;
 
+import com.ai.gateway.config.DynamicRouteProperties;
 import com.ai.gateway.config.GatewayAuthProperties;
 import com.ai.gateway.config.GatewayCorsProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
 /**###############################
  * 网关服务应用程序主入口
  *
@@ -23,7 +26,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  */
 
 @SpringBootApplication
-@EnableConfigurationProperties({GatewayAuthProperties.class, GatewayCorsProperties.class})
+@EnableDiscoveryClient
+@EnableConfigurationProperties({GatewayAuthProperties.class, GatewayCorsProperties.class, DynamicRouteProperties.class})
 public class GatewayApplication {
 
     /**

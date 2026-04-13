@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8081
   forward-headers-strategy: framework
   netty:
     max-initial-line-length: 65536
@@ -10,8 +10,26 @@ spring:
     name: ai-gateway
   codec:
     max-in-memory-size: 52428800   # 50MB，与nginx的client_max_body_size保持一致
-  cloud:                                        # Spring Cloud Gateway 配置             
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+      config:
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
+        file-extension: json
+        import-check:
+          enabled: false
     gateway:
+      discovery:
+        locator:
+          enabled: false
       httpclient:
         connect-timeout: 10000       # 10秒，连接超时时间
         response-timeout: 600s       # 10分钟，LLM接口响应较慢需足够时间
@@ -19,31 +37,8 @@ spring:
           max-idle-time: 30s         # 最大空闲时间30秒
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
-      routes:
-        # -------- video_analyze 服务（端口9001）--------
-        - id: video-analyze
-          uri: ${AGENT_VIDEO_ANALYZE_URL:http://127.0.0.1:9001}
-          predicates:
-            - Path=/api/video-analyze/**
-          filters:
-            - name: RequestSize
-              args:
-                maxSize: 52428800    # 50MB，请求体大小限制
+      # routes are loaded dynamically from nacos config data-id `gateway-routes.json`
 
-        # -------- ui_builder 服务（端口9002）--------
-        - id: ui-builder
-          uri: ${AGENT_UI_BUILDER_URL:http://127.0.0.1:9002}
-          predicates:
-            - Path=/api/ui-builder/**
-          filters:
-            - name: RequestSize
-              args:
-                maxSize: 52428800    # 50MB，请求体大小限制
-
-# --------------------------------------------------
-# 上游服务地址（自定义属性，仅做参考）
-# 可通过环境变量AGENT_VIDEO_ANALYZE_URL / AGENT_UI_BUILDER_URL覆盖
-# --------------------------------------------------
 gateway:
   auth:
     enabled: ${GATEWAY_AUTH_ENABLED:false}
@@ -57,18 +52,22 @@ gateway:
     allowed-headers: ${GATEWAY_CORS_ALLOWED_HEADERS:*}
     allow-credentials: ${GATEWAY_CORS_ALLOW_CREDENTIALS:false}
     max-age: ${GATEWAY_CORS_MAX_AGE:3600}
+  dynamic-route:
+    data-id: ${GATEWAY_ROUTE_DATA_ID:gateway-routes.json}
+    group: ${GATEWAY_ROUTE_GROUP:DEFAULT_GROUP}
+    timeout-ms: ${GATEWAY_ROUTE_TIMEOUT_MS:5000}
 
 # Actuator端点
 management:
   endpoints:
     web:
       exposure:
-        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info}
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,gateway}
   endpoint:
     health:
       show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:never}
     gateway:
-      enabled: ${MANAGEMENT_ENDPOINT_GATEWAY_ENABLED:false}
+      enabled: ${MANAGEMENT_ENDPOINT_GATEWAY_ENABLED:true}
 
 logging:
   level:

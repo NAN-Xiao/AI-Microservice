@@ -20,6 +20,7 @@ import asyncio
 import logging
 import os
 import threading
+from typing import Optional
 
 import httpx
 from fastapi import Request
@@ -71,10 +72,10 @@ def update_tokens_from_nacos(raw: str):
 
 _NACOS_ADDR = os.environ.get("NACOS_ADDR", "").strip()
 _NACOS_POLL_INTERVAL = 30  # 秒
-_nacos_poll_task: asyncio.Task | None = None
+_nacos_poll_task: Optional[asyncio.Task] = None
 
 
-async def _fetch_nacos_config(service_name: str) -> str | None:
+async def _fetch_nacos_config(service_name: str) -> Optional[str]:
     """从 Nacos HTTP API 拉取配置内容。"""
     if not _NACOS_ADDR:
         return None

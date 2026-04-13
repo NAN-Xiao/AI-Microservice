@@ -1,0 +1,18 @@
+---
+description: Use Git Bash to run .sh scripts on Windows
+alwaysApply: true
+---
+
+# Shell Script Execution Rule
+
+- On Windows, execute `.sh` files with Git Bash instead of PowerShell or CMD.
+- Preferred command format: `& "C:\Program Files\Git\bin\bash.exe" <script_path> [args]`.
+- If `bash` is unavailable in `PATH`, do not call `bash <script>` directly.
+
+```bash
+# BAD on Windows when bash is not in PATH
+bash publish/publish.sh ui_builder
+
+# GOOD
+& "C:\Program Files\Git\bin\bash.exe" publish/publish.sh ui_builder
+```

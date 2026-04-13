@@ -1,0 +1,19 @@
+---
+description: Standardize on Python 3.11 for services and venv
+alwaysApply: true
+---
+
+# Python Version Rule
+
+- Project Python version is fixed to `3.11`.
+- Create virtual environments with `python3.11 -m venv venv`.
+- In deployment or startup scripts, avoid ambiguous interpreters (`python` / `python3`) when version matters.
+- If an existing virtual environment is not Python `3.11`, recreate it before installing dependencies.
+
+```bash
+# BAD
+python3 -m venv venv
+
+# GOOD
+python3.11 -m venv venv
+```

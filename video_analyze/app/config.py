@@ -66,6 +66,11 @@ def _service_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
     return s.get(key, default) if isinstance(s, dict) else default
 
 
+def _nacos_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
+    s = cfg.get("nacos") or {}
+    return s.get(key, default) if isinstance(s, dict) else default
+
+
 
 def _from_env(key: str, file_val: Any, cast=str) -> Any:
     if key not in os.environ:
@@ -83,7 +88,7 @@ def _from_env(key: str, file_val: Any, cast=str) -> Any:
 def _build_settings() -> "Settings":
     c = _load_file_config()
 
-    host = _from_env("HOST", _server_get(c, "host", "127.0.0.1"))
+    host = _from_env("HOST", _server_get(c, "host", "0.0.0.0"))
     port = _from_env("PORT", _server_get(c, "port", 9001), int)
     debug_env = os.environ.get("DEBUG")
     if debug_env is not None:
@@ -118,6 +123,14 @@ def _build_settings() -> "Settings":
         llm_concurrency=llm_concurrency,
         log_to_file=log_to_file,
         http_client=None,
+        # -------- Nacos 服务注册配置 --------
+        nacos_enabled=_from_env("NACOS_ENABLED", _nacos_get(c, "enabled", "true")),
+        nacos_server_addr=_from_env("NACOS_SERVER_ADDR", _nacos_get(c, "server_addr", "127.0.0.1:8848")),
+        nacos_service_name=_from_env("NACOS_SERVICE_NAME", _nacos_get(c, "service_name", "video-analyze-service")),
+        nacos_namespace=_from_env("NACOS_NAMESPACE", _nacos_get(c, "namespace", "")),
+        nacos_group=_from_env("NACOS_GROUP", _nacos_get(c, "group", "DEFAULT_GROUP")),
+        nacos_username=_from_env("NACOS_USERNAME", _nacos_get(c, "username", "nacos")),
+        nacos_password=_from_env("NACOS_PASSWORD", _nacos_get(c, "password", "nacos")),
     )
 
 
@@ -134,6 +147,14 @@ class Settings:
     llm_concurrency: int
     log_to_file: bool
     http_client: Optional[httpx.AsyncClient]
+    # -------- Nacos 服务注册配置 --------
+    nacos_enabled: str
+    nacos_server_addr: str
+    nacos_service_name: str
+    nacos_namespace: str
+    nacos_group: str
+    nacos_username: str
+    nacos_password: str
 
 
 settings = _build_settings()

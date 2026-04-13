@@ -1,7 +1,7 @@
 com\ai\gateway\config\GatewayErrorHandler.class
+com\ai\gateway\filter\ForwardHeadersFilter.class
+com\ai\gateway\config\GatewayHealthController.class
 com\ai\gateway\filter\AuthFilter.class
 com\ai\gateway\GatewayApplication.class
 com\ai\gateway\config\CorsConfig.class
-com\ai\gateway\filter\ForwardHeadersFilter.class
-com\ai\gateway\config\GatewayHealthController.class
 com\ai\gateway\filter\AccessLogFilter.class
