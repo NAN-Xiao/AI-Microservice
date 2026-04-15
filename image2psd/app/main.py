@@ -54,13 +54,21 @@ async def lifespan(app: FastAPI):
         settings.port,
         settings.comfyui_base_url,
     )
+    logger.info(
+        "日志模式: %s",
+        "文件+控制台" if settings.log_to_file else "仅控制台(stdout)",
+    )
+    if not (settings.comfyui_base_url or "").strip():
+        logger.warning("ComfyUI 地址未设置：/convert 将调用失败，请在配置文件或 COMFYUI_BASE_URL 中配置")
 
     await nacos.register()
     await start_nacos_token_watcher(settings.service_name)
     set_ready(True)
+    logger.info("服务就绪，开始接受请求")
 
     yield
 
+    logger.info("收到停机信号，开始优雅停机...")
     set_ready(False)
     await stop_nacos_token_watcher()
     await nacos.deregister()
@@ -79,18 +87,36 @@ app.add_middleware(TokenAuthMiddleware)
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
+    request.state.request_id = request_id
     start = time.time()
-    logger.info("→ %s %s [%s]", request.method, request.url.path, request_id)
+    logger.info(
+        "→ %s %s [%s]",
+        request.method, request.url.path, request_id,
+    )
     try:
         response = await call_next(request)
         elapsed = time.time() - start
-        logger.info("← %s %s [%s] %d (%.1fms)", request.method, request.url.path, request_id, response.status_code, elapsed * 1000)
+        logger.info(
+            "← %s %s [%s] %d (%.1fms)",
+            request.method, request.url.path, request_id,
+            response.status_code, elapsed * 1000,
+        )
         response.headers["X-Request-ID"] = request_id
         return response
     except Exception:
         elapsed = time.time() - start
-        logger.exception("← %s %s [%s] 500 (%.1fms) UNHANDLED", request.method, request.url.path, request_id, elapsed * 1000)
-        return JSONResponse(status_code=500, content={"code": 500, "message": "服务内部错误", "request_id": request_id})
+        logger.exception(
+            "← %s %s [%s] 500 (%.1fms) UNHANDLED",
+            request.method, request.url.path, request_id, elapsed * 1000,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": "服务内部错误",
+                "request_id": request_id,
+            },
+        )
 
 
 app.include_router(convert.router)

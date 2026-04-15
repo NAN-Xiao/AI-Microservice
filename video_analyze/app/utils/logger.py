@@ -12,7 +12,6 @@ import logging
 import time
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 from app.config import settings, PROJECT_ROOT
 
@@ -44,8 +43,6 @@ class _ColorFormatter(logging.Formatter):
         ts = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
         level = f"{color}{record.levelname:<7}{_RESET}"
         name = f"{_CYAN}{record.name}{_RESET}"
-        msg = super().format(record)  # 会处理 exc_info
-        # super().format 已经包含了完整消息，直接拼接前缀
         return f"{_DIM}{ts}{_RESET} {level} {name} - {record.getMessage()}" + (
             "\n" + self.formatException(record.exc_info) if record.exc_info else ""
         )
