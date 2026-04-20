@@ -19,7 +19,7 @@ from app.middleware.auth import (
 )
 from app.routers import convert, health
 from app.routers.health import set_ready
-from app.utils.logger import setup_logging
+from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ async def lifespan(app: FastAPI):
 
     await nacos.register()
     await start_nacos_token_watcher(settings.service_name)
+    start_log_cleanup()
     set_ready(True)
     logger.info("服务就绪，开始接受请求")
 
@@ -70,6 +71,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("收到停机信号，开始优雅停机...")
     set_ready(False)
+    stop_log_cleanup()
     await stop_nacos_token_watcher()
     await nacos.deregister()
     logger.info("Image2Psd shutdown complete")

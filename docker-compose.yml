@@ -113,6 +113,39 @@ services:
     networks:
       - ai-net
 
+  # ---------- Image2Psd ----------
+  image2psd:
+    build:
+      context: ./image2psd
+      dockerfile: Dockerfile
+    container_name: image2psd
+    restart: unless-stopped
+    ports:
+      - "9003:9003"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9003
+      - DEBUG=false
+      - LOG_TO_FILE=true
+      - COMFYUI_BASE_URL=${IMAGE2PSD_COMFYUI_BASE_URL:?请设置 IMAGE2PSD_COMFYUI_BASE_URL}
+      - COMFYUI_TIMEOUT=300
+      - COMFYUI_POLL_INTERVAL=1
+      - AUTH_TOKENS=${AUTH_TOKENS:-}
+      - NACOS_ADDR=nacos:8848
+    volumes:
+      - ./image2psd/logs:/app/logs
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9003/api/image2psd/health/live')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - ai-net
+
   # ==================== 反向代理 ====================
 
   nginx:
@@ -130,6 +163,8 @@ services:
       ui-builder:
         condition: service_healthy
       video-analyze:
+        condition: service_healthy
+      image2psd:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/nginx-health"]

@@ -11,9 +11,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# 重试配置
-_MAX_RETRIES = 2
-_RETRY_BACKOFF = 1.0  # 秒，指数退避基数
 _RETRYABLE_STATUS = {500, 502, 503, 429}
 
 
@@ -37,11 +34,11 @@ async def analyze(video_url: str, prompt: str) -> str:
     }
 
     last_exc: Exception | None = None
-    for attempt in range(_MAX_RETRIES + 1):
+    for attempt in range(settings.max_retries + 1):
         try:
             if attempt > 0:
-                wait = _RETRY_BACKOFF * (2 ** (attempt - 1))
-                logger.info("LLM 重试 %d/%d (等待 %.1fs): video_url=%s", attempt, _MAX_RETRIES, wait, video_url)
+                wait = settings.retry_backoff * (2 ** (attempt - 1))
+                logger.info("LLM 重试 %d/%d (等待 %.1fs): video_url=%s", attempt, settings.max_retries, wait, video_url)
                 await asyncio.sleep(wait)
 
             logger.info("调用 LLM: model=%s, video_url=%s", settings.model, video_url)

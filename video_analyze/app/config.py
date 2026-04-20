@@ -104,6 +104,12 @@ def _build_settings() -> "Settings":
     llm_concurrency = _from_env(
         "LLM_CONCURRENCY", _llm_get(c, "concurrency", 5), int
     )
+    max_retries = _from_env(
+        "LLM_MAX_RETRIES", _llm_get(c, "max_retries", 2), int
+    )
+    retry_backoff = float(_from_env(
+        "LLM_RETRY_BACKOFF", _llm_get(c, "retry_backoff", 1.0)
+    ))
 
     log_to_file_env = os.environ.get("LOG_TO_FILE")
     if log_to_file_env is not None:
@@ -121,6 +127,8 @@ def _build_settings() -> "Settings":
         timeout=timeout,
         service_name=service_name,
         llm_concurrency=llm_concurrency,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
         log_to_file=log_to_file,
         http_client=None,
         # -------- Nacos 服务注册配置 --------
@@ -145,6 +153,8 @@ class Settings:
     timeout: int
     service_name: str
     llm_concurrency: int
+    max_retries: int
+    retry_backoff: float
     log_to_file: bool
     http_client: Optional[httpx.AsyncClient]
     # -------- Nacos 服务注册配置 --------

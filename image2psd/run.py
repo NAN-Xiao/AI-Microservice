@@ -1,3 +1,10 @@
+"""
+启动入口。
+用法：
+  python run.py
+  uvicorn app.main:app --host 0.0.0.0 --port 9003
+"""
+
 from app.config import settings
 
 if __name__ == "__main__":

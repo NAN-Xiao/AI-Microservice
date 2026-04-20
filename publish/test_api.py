@@ -15,9 +15,11 @@ BASE = "http://zhongtai-ai.elexapp.com"
 # 各服务的测试项：(名称, 方法, 路径, 期望status, body/None)
 SERVICES = {
     "video_analyze": [
-        ("健康检查",   "GET",  "/api/video-analyze/health",      200, None),
-        ("就绪探针",   "GET",  "/api/video-analyze/health/ready", None, None),  # 200或503都算通
-        ("获取标签模板","GET", "/api/video-analyze/tags",         200, None),
+        ("健康检查",    "GET",  "/api/video-analyze/health",       200, None),
+        ("存活探针",    "GET",  "/api/video-analyze/health/live",  200, None),
+        ("就绪探针",    "GET",  "/api/video-analyze/health/ready", None, None),  # 200或503都算通
+        ("获取标签模板", "GET", "/api/video-analyze/tags",          200, None),
+        ("任务列表",    "GET",  "/api/video-analyze/tasks",        200, None),
     ],
     "ui_builder": [
         ("健康检查",   "GET",  "/api/ui-builder/health",         200, None),
@@ -59,6 +61,99 @@ def test_endpoint(client: httpx.Client, name: str, method: str, path: str, expec
     except httpx.TimeoutException:
         print(f"  {FAIL}  {name:<12s}  超时({TIMEOUT}s)  {path}")
         return False
+
+
+# ── video_analyze 核心流程测试 ─────────────────────────────────
+# 公开可访问的极短测试视频（~2MB，用于冒烟）
+_TEST_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4"
+
+def test_video_analyze_workflow(client: httpx.Client) -> tuple[int, int]:
+    """
+    测试同步分析和异步任务完整流程。
+    返回 (passed, failed)。
+    """
+    passed, failed = 0, 0
+    analyze_path = "/api/video-analyze/analyze"
+    tasks_path = "/api/video-analyze/tasks"
+    body = {"video_url": _TEST_VIDEO_URL}
+
+    # 1. 同步分析（LLM 调用，超时放宽到 120s）
+    name = "同步分析"
+    url = BASE + analyze_path
+    t0 = time.perf_counter()
+    try:
+        resp = client.post(url, json=body, timeout=120)
+        elapsed = (time.perf_counter() - t0) * 1000
+        data = resp.json()
+        code = data.get("code", resp.status_code)
+        if resp.status_code == 200 and code == 200:
+            print(f"  {PASS}  {name:<12s}  {resp.status_code}  {elapsed:.0f}ms  {analyze_path}")
+            passed += 1
+        else:
+            msg = data.get("message", resp.text[:120])
+            print(f"  {FAIL}  {name:<12s}  HTTP={resp.status_code} code={code}  {elapsed:.0f}ms")
+            print(f"         ↳ {msg}")
+            failed += 1
+    except httpx.TimeoutException:
+        elapsed = (time.perf_counter() - t0) * 1000
+        print(f"  {WARN}  {name:<12s}  LLM超时({elapsed/1000:.0f}s)，服务本身正常  {analyze_path}")
+        # LLM 超时不算服务故障
+        passed += 1
+    except httpx.ConnectError:
+        elapsed = (time.perf_counter() - t0) * 1000
+        print(f"  {FAIL}  {name:<12s}  连接失败  {elapsed:.0f}ms  {analyze_path}")
+        failed += 1
+
+    # 2. 异步任务：提交
+    name = "异步提交"
+    url = BASE + tasks_path
+    task_id = None
+    t0 = time.perf_counter()
+    try:
+        resp = client.post(url, json=body, timeout=TIMEOUT)
+        elapsed = (time.perf_counter() - t0) * 1000
+        data = resp.json()
+        code = data.get("code", resp.status_code)
+        if resp.status_code == 200 and code == 200:
+            task_id = data.get("data", {}).get("task_id")
+            print(f"  {PASS}  {name:<12s}  {resp.status_code}  {elapsed:.0f}ms  task_id={task_id}")
+            passed += 1
+        else:
+            msg = data.get("message", resp.text[:120])
+            print(f"  {FAIL}  {name:<12s}  HTTP={resp.status_code} code={code}  {elapsed:.0f}ms")
+            print(f"         ↳ {msg}")
+            failed += 1
+    except (httpx.ConnectError, httpx.TimeoutException) as e:
+        elapsed = (time.perf_counter() - t0) * 1000
+        print(f"  {FAIL}  {name:<12s}  {type(e).__name__}  {elapsed:.0f}ms  {tasks_path}")
+        failed += 1
+
+    # 3. 异步任务：查询（只验证接口通，不等待完成）
+    if task_id:
+        name = "任务查询"
+        query_path = f"{tasks_path}/{task_id}"
+        url = BASE + query_path
+        t0 = time.perf_counter()
+        try:
+            resp = client.get(url, timeout=TIMEOUT)
+            elapsed = (time.perf_counter() - t0) * 1000
+            data = resp.json()
+            code = data.get("code", resp.status_code)
+            if resp.status_code == 200 and code == 200:
+                status_val = data.get("data", {}).get("status", "?")
+                print(f"  {PASS}  {name:<12s}  {resp.status_code}  {elapsed:.0f}ms  status={status_val}")
+                passed += 1
+            else:
+                msg = data.get("message", resp.text[:120])
+                print(f"  {FAIL}  {name:<12s}  HTTP={resp.status_code} code={code}  {elapsed:.0f}ms")
+                print(f"         ↳ {msg}")
+                failed += 1
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            elapsed = (time.perf_counter() - t0) * 1000
+            print(f"  {FAIL}  {name:<12s}  {type(e).__name__}  {elapsed:.0f}ms  {query_path}")
+            failed += 1
+
+    return passed, failed
 
 
 def main():

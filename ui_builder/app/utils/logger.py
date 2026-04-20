@@ -3,13 +3,15 @@ ui_builder 日志系统。
 - 控制台彩色输出（开发调试用）
 - 按日期滚动的文件日志（持久化）
 - 每次分析请求生成独立 JSON 日志文件（可审计追溯）
+- 自动清理超过 7 天的请求日志文件
 """
 
+import asyncio
 import json
 import logging
+import time
 from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
-from pathlib import Path
 
 from app.config import settings, PROJECT_ROOT
 
@@ -87,3 +89,47 @@ def log_request(task_id: str, data: dict) -> None:
     filepath = _REQUEST_LOG_DIR / f"{ts}_{task_id}.json"
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+_LOG_RETENTION_DAYS = 7
+_LOG_CLEANUP_INTERVAL = 3600
+_cleanup_handle: asyncio.TimerHandle | None = None
+
+
+def _cleanup_old_request_logs() -> None:
+    """删除超过保留天数的请求日志文件。"""
+    if not _REQUEST_LOG_DIR.is_dir():
+        return
+    cutoff = time.time() - _LOG_RETENTION_DAYS * 86400
+    removed = 0
+    for file_path in _REQUEST_LOG_DIR.iterdir():
+        if file_path.is_file() and file_path.stat().st_mtime < cutoff:
+            file_path.unlink(missing_ok=True)
+            removed += 1
+    if removed:
+        logging.getLogger(__name__).debug("清理过期请求日志: %d 个", removed)
+
+
+def start_log_cleanup() -> None:
+    """启动定期日志清理（在 lifespan 中调用）。"""
+    global _cleanup_handle
+
+    def _schedule() -> None:
+        global _cleanup_handle
+        _cleanup_old_request_logs()
+        _cleanup_handle = asyncio.get_event_loop().call_later(
+            _LOG_CLEANUP_INTERVAL, _schedule
+        )
+
+    _cleanup_old_request_logs()
+    _cleanup_handle = asyncio.get_event_loop().call_later(
+        _LOG_CLEANUP_INTERVAL, _schedule
+    )
+
+
+def stop_log_cleanup() -> None:
+    """停止定期日志清理。"""
+    global _cleanup_handle
+    if _cleanup_handle:
+        _cleanup_handle.cancel()
+        _cleanup_handle = None

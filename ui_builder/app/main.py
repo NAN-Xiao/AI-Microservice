@@ -22,7 +22,7 @@ from app.middleware.auth import (
 )
 from app.routers import analyze, health
 from app.routers.health import set_ready
-from app.utils.logger import setup_logging
+from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
 
 # 初始化日志系统（文件 + 控制台）
 setup_logging()
@@ -78,6 +78,7 @@ async def lifespan(app: FastAPI):
     # Nacos 注册（含心跳）+ Token 配置监听
     await nacos.register()
     await start_nacos_token_watcher(settings.service_name)
+    start_log_cleanup()
 
     # 标记就绪 —— Nginx/Nacos/K8s 探针开始放行流量
     set_ready(True)
@@ -89,6 +90,7 @@ async def lifespan(app: FastAPI):
     logger.info("收到停机信号，开始优雅停机...")
     set_ready(False)
 
+    stop_log_cleanup()
     await stop_nacos_token_watcher()
     await nacos.deregister()
 
