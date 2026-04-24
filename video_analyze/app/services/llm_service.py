@@ -61,7 +61,19 @@ async def analyze(video_url: str, prompt: str) -> str:
             message = choices[0].get("message")
             if not message or "content" not in message:
                 raise ValueError(f"LLM 响应缺少 message.content: {choices[0].keys()}")
-            return message["content"]
+
+            content = message["content"]
+            # 兼容部分 OpenAI 兼容网关返回 content 为数组片段的情况
+            if isinstance(content, list):
+                text_parts: list[str] = []
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "text":
+                        text_parts.append(str(part.get("text", "")))
+                content = "\n".join(p for p in text_parts if p).strip()
+
+            if not isinstance(content, str):
+                raise ValueError(f"LLM 响应 content 类型异常: {type(content).__name__}")
+            return content
 
         except httpx.HTTPStatusError as e:
             last_exc = e

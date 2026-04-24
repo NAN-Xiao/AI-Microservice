@@ -8,7 +8,7 @@ Token 来源（优先级从高到低，合并取并集）：
 1. Nacos 配置中心 —— 在 Nacos 控制台修改后 ~30s 自动热加载，不用重启
    Data ID = <service.name>  Group = AI_MICROSERVICE
    配置内容: auth_tokens: token-a,token-b
-2. 环境变量 AUTH_TOKENS（作为兜底 / 本地开发用）
+2. settings.yaml 中 auth.tokens（作为兜底）
 
 规则：
 - 两处都为空 → 鉴权关闭，所有请求放行（本地开发）
@@ -18,7 +18,6 @@ Token 来源（优先级从高到低，合并取并集）：
 
 import asyncio
 import logging
-import os
 import threading
 from typing import Optional
 
@@ -27,13 +26,15 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 # ─── Token 存储（线程安全） ──────────────────────────────
 
-# 环境变量 token（启动时加载，不变）
-_raw = os.environ.get("AUTH_TOKENS", "").strip()
-_ENV_TOKENS: frozenset[str] = (
+# 配置文件 token（启动时加载，不变）
+_raw = (settings.auth_tokens or "").strip()
+_CONFIG_TOKENS: frozenset[str] = (
     frozenset(t.strip() for t in _raw.split(",") if t.strip()) if _raw else frozenset()
 )
 
@@ -42,7 +43,7 @@ _nacos_lock = threading.Lock()
 _nacos_tokens: set[str] = set()
 
 # 对外暴露的合并视图
-_ALLOWED_TOKENS: set[str] = set(_ENV_TOKENS)
+_ALLOWED_TOKENS: set[str] = set(_CONFIG_TOKENS)
 
 
 def _parse_tokens(raw: str) -> set[str]:
@@ -51,10 +52,10 @@ def _parse_tokens(raw: str) -> set[str]:
 
 
 def _refresh_allowed():
-    """合并环境变量 + Nacos token，更新公共集合。"""
+    """合并配置文件 + Nacos token，更新公共集合。"""
     global _ALLOWED_TOKENS
     with _nacos_lock:
-        _ALLOWED_TOKENS = set(_ENV_TOKENS) | set(_nacos_tokens)
+        _ALLOWED_TOKENS = set(_CONFIG_TOKENS) | set(_nacos_tokens)
 
 
 def update_tokens_from_nacos(raw: str):
@@ -70,7 +71,8 @@ def update_tokens_from_nacos(raw: str):
 
 # ─── Nacos 配置监听 ─────────────────────────────────────
 
-_NACOS_ADDR = os.environ.get("NACOS_ADDR", "").strip()
+_NACOS_ADDR = (settings.nacos_server_addr or "").strip()
+_NACOS_ENABLED = bool(settings.nacos_enabled)
 _NACOS_POLL_INTERVAL = 30  # 秒
 _nacos_poll_task: Optional[asyncio.Task] = None
 
@@ -126,7 +128,7 @@ async def _nacos_poll_loop(service_name: str):
 async def start_nacos_token_watcher(service_name: str):
     """启动 Nacos 配置监听（在 lifespan 中调用）。首次拉取 + 后台定时轮询。"""
     global _nacos_poll_task
-    if not _NACOS_ADDR:
+    if (not _NACOS_ENABLED) or (not _NACOS_ADDR):
         return
     # 首次拉取
     content = await _fetch_nacos_config(service_name)
@@ -135,7 +137,7 @@ async def start_nacos_token_watcher(service_name: str):
         update_tokens_from_nacos(raw_tokens)
         logger.info("首次从 Nacos 加载 token 完成")
     else:
-        logger.info("Nacos 无 %s 配置或不可达，仅使用环境变量 token", service_name)
+        logger.info("Nacos 无 %s 配置或不可达，仅使用 settings.yaml 中 auth.tokens", service_name)
     # 后台轮询
     _nacos_poll_task = asyncio.create_task(_nacos_poll_loop(service_name))
 

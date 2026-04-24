@@ -23,7 +23,7 @@ set -euo pipefail
 REMOTE_HOST="${REMOTE_HOST:-10.1.6.76}"
 REMOTE_USER="${REMOTE_USER:-root}"
 REMOTE_PASS="${REMOTE_PASS:-ELEXtech%0609}"
-REMOTE_BASE="${REMOTE_BASE:-/home/AI-Microservice2}"
+REMOTE_BASE="${REMOTE_BASE:-/home/AI-Microservice}"
 RESTART="${RESTART:-false}"
 JAVA_HOME="${JAVA_HOME:-C:/Program Files/Java/jdk-17.0.18}"
 

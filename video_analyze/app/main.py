@@ -6,7 +6,6 @@ Video Analyze 微服务：接收视频地址并调用 LLM 输出标签结果。
 """
 
 import logging
-import os
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -30,13 +29,10 @@ from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
 setup_logging()
 logger = logging.getLogger(__name__)
 
-_NACOS_ADDR = os.environ.get("NACOS_ADDR", "").strip()
-
 # ─── Nacos 服务注册（完整版：含心跳） ─────────────────────
 
-# 优先使用 NACOS_ADDR 环境变量（兼容 docker-compose），否则使用 config 中的配置
-_nacos_server = _NACOS_ADDR if _NACOS_ADDR else settings.nacos_server_addr
-_nacos_enabled = bool(_NACOS_ADDR) or settings.nacos_enabled.lower() in ("1", "true", "yes")
+_nacos_server = settings.nacos_server_addr
+_nacos_enabled = settings.nacos_enabled
 
 # 延迟导入，nacos_registry.py 位于项目根目录（video_analyze/）
 import sys as _sys
@@ -71,7 +67,7 @@ async def lifespan(app: FastAPI):
     )
     if not (settings.api_key or "").strip():
         logger.warning(
-            "LLM 密钥未设置：/analyze 将调用失败，请在 settings.yaml 或 LLM_API_KEY 中配置"
+            "LLM 密钥未设置：/analyze 将调用失败，请在 settings.yaml 的 llm.api_key 中配置"
         )
 
     # ⚠ 任务存储为内存模式，多实例部署时各实例的任务状态不共享
@@ -113,7 +109,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ─── 鉴权中间件（AUTH_TOKENS 为空时自动跳过）─────────────
+# ─── 鉴权中间件（settings.yaml 中 auth.tokens 为空时自动跳过）─────────────
 app.add_middleware(TokenAuthMiddleware)
 
 

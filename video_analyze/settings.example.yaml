@@ -1,27 +1,23 @@
-# ui_builder 配置模板
-# 复制为 settings.yaml 后填写真实密钥
+# video_analyze 配置模板
+# 复制为 settings.yaml 后填写真实值
 # 本服务只读取配置文件，不读取环境变量
 
 server:
   host: "0.0.0.0"
-  port: 9002
+  port: 9001
   debug: false
   log_to_file: true
-  # Docker 中一般不用 SSL（由 Nginx / 网关卸载），留空即可
-  ssl_certfile: ""
-  ssl_keyfile: ""
 
 llm:
   api_url: "https://aikey.elex-tech.com/v1"
   api_key: "replace-with-your-llm-api-key"
   model: "qwen3.5-plus"
   timeout_seconds: 600
-  concurrency: 20
-  image_max_long_side: 1024
-  image_quality: 80
+  concurrency: 5
 
 service:
-  name: "ui-builder"
+  # 用于 token 配置监听的 Data ID
+  name: "video-analyze"
 
 auth:
   # 逗号分隔，留空表示关闭鉴权
@@ -30,7 +26,7 @@ auth:
 nacos:
   enabled: true
   server_addr: "127.0.0.1:8848"
-  service_name: "ui-builder-service"
+  service_name: "video-analyze-service"
   namespace: ""
   group: "DEFAULT_GROUP"
   username: "nacos"

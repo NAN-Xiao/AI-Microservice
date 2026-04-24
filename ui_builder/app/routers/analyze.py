@@ -41,6 +41,16 @@ router = APIRouter(prefix="/api/ui-builder", tags=["UI 分析"])
 
 MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20 MB
 
+# LLM 并发信号量：限制同时调用上游 LLM 的请求数
+_llm_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    global _llm_semaphore
+    if _llm_semaphore is None:
+        _llm_semaphore = asyncio.Semaphore(settings.llm_concurrency)
+    return _llm_semaphore
+
 # 异步分析接口
 
 @router.post("/submit", response_model=ApiResult)
@@ -56,8 +66,7 @@ async def submit(
     if not (settings.api_key or "").strip():
         return ApiResult.error(
             500,
-            "服务未配置 LLM 密钥：请在 ui_builder/settings.yaml 的 llm.api_key 填写，"
-            "或设置环境变量 LLM_API_KEY。",
+            "服务未配置 LLM 密钥：请在 ui_builder/settings.yaml 的 llm.api_key 填写。",
         )
 
     image_bytes = await image.read()
@@ -142,11 +151,12 @@ async def _run_analysis(task_id: str, image_bytes: bytes, filename: str,
         task_store.update_step(task_id, "AI分析中")
         log.step(rid, "调用 LLM", f"model={settings.model}")
 
-        result_text = await llm_client.analyze_image(
-            image_bytes, filename,
-            system_prompt, user_prompt,
-            cancel_event=cancel_event,
-        )
+        async with _get_semaphore():
+            result_text = await llm_client.analyze_image(
+                image_bytes, filename,
+                system_prompt, user_prompt,
+                cancel_event=cancel_event,
+            )
         log.step_done(rid, "调用 LLM", f"返回 {len(result_text)} 字符")
 
         if task_store.is_cancelled(task_id):
@@ -223,8 +233,7 @@ async def analyze(
         log.request_fail(rid, "LLM 密钥未配置")
         return ApiResult.error(
             500,
-            "服务未配置 LLM 密钥：请在 ui_builder/settings.yaml 的 llm.api_key 填写，"
-            "或设置环境变量 LLM_API_KEY。",
+            "服务未配置 LLM 密钥：请在 ui_builder/settings.yaml 的 llm.api_key 填写。",
         )
 
     try:
@@ -257,10 +266,11 @@ async def analyze(
         log.step_done(rid, "构建 Prompt")
 
         log.step(rid, "调用 LLM", f"model={settings.model} img={img_w}x{img_h} target={target_w}x{target_h}")
-        result_text = await llm_client.analyze_image(
-            image_bytes, filename,
-            system_prompt, user_prompt,
-        )
+        async with _get_semaphore():
+            result_text = await llm_client.analyze_image(
+                image_bytes, filename,
+                system_prompt, user_prompt,
+            )
         log.step_done(rid, "调用 LLM", f"返回 {len(result_text)} 字符")
 
         log.step(rid, "解析 JSON")

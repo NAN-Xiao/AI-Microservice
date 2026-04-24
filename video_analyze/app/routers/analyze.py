@@ -134,6 +134,16 @@ async def analyze(req: AnalyzeRequest):
         })
         return ApiResult.error(503, msg, request_id=request_id)
 
+    except ValueError as e:
+        # 上游返回结构异常/不可解析时，按上游错误处理，避免误报 500
+        msg = f"LLM 响应格式异常: {e}"
+        step_fail(request_id, "同步分析", msg)
+        log_request(request_id, {
+            "mode": "sync", "video_url": req.video_url,
+            "status": "failed", "error": msg,
+        })
+        return ApiResult.error(502, msg, request_id=request_id)
+
     except Exception as exc:
         logger.exception("[%s] 分析失败", request_id)
         msg = f"分析失败: {type(exc).__name__}: {exc}"
@@ -298,6 +308,15 @@ async def _run_analysis(task_id: str, video_url: str, *, custom_tags: dict | Non
             "mode": "async", "video_url": video_url, "status": "failed", "error": msg,
         })
 
+    except ValueError as e:
+        # 上游返回结构异常/不可解析时，按上游错误处理，避免误报 500
+        msg = f"LLM 响应格式异常: {e}"
+        await task_store.set_failed(task_id, msg, 502)
+        step_fail(task_id, "异步分析", msg)
+        log_request(task_id, {
+            "mode": "async", "video_url": video_url, "status": "failed", "error": msg,
+        })
+
     except Exception as exc:
         logger.exception("[%s] 异步分析失败", task_id[:8])
         msg = f"分析失败: {type(exc).__name__}: {exc}"
@@ -317,7 +336,11 @@ def _parse_json_result(text: str) -> dict:
             lines = lines[:-1]
         cleaned = "\n".join(lines)
     try:
-        return json.loads(cleaned)
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("LLM 返回 JSON 但不是对象: %s", type(parsed).__name__)
+        return {"raw_content": text}
     except json.JSONDecodeError:
         logger.warning("LLM 返回非 JSON，原样返回")
         return {"raw_content": text}

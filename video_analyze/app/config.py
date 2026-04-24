@@ -3,13 +3,14 @@ video_analyze 专用配置（与 ui_builder 完全独立，无共享模块）。
 
 加载顺序：
 1. settings.example.yaml（仓库内默认，勿写真实密钥）
-2. settings.yaml（本地覆盖；路径可用 VIDEO_ANALYZE_CONFIG 指定）
-3. 环境变量覆盖：HOST、PORT、DEBUG、LLM_*、LLM_CONCURRENCY
+2. settings.yaml（本地覆盖，写真实密钥）
+
+说明：
+- 本服务只读取配置文件，不读取任何环境变量。
 """
 
 from __future__ import annotations
 
-import os
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -22,7 +23,7 @@ import yaml
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 _EXAMPLE_PATH = PROJECT_ROOT / "settings.example.yaml"
-_LOCAL_PATH = Path(os.environ.get("VIDEO_ANALYZE_CONFIG", str(PROJECT_ROOT / "settings.yaml")))
+_LOCAL_PATH = PROJECT_ROOT / "settings.yaml"
 
 
 def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
@@ -66,50 +67,52 @@ def _service_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
     return s.get(key, default) if isinstance(s, dict) else default
 
 
+def _auth_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
+    s = cfg.get("auth") or {}
+    return s.get(key, default) if isinstance(s, dict) else default
+
+
 def _nacos_get(cfg: dict[str, Any], key: str, default: Any) -> Any:
     s = cfg.get("nacos") or {}
     return s.get(key, default) if isinstance(s, dict) else default
 
 
+def _to_int(value: Any, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
-def _from_env(key: str, file_val: Any, cast=str) -> Any:
-    if key not in os.environ:
-        if cast is int:
-            return int(file_val)
-        if file_val is None:
-            return ""
-        return str(file_val)
-    raw = os.environ[key]
-    if cast is int:
-        return int(raw)
-    return raw
+
+def _to_bool(value: Any, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ("1", "true", "yes", "on"):
+            return True
+        if v in ("0", "false", "no", "off"):
+            return False
+    return default
 
 
 def _build_settings() -> "Settings":
     c = _load_file_config()
 
-    host = _from_env("HOST", _server_get(c, "host", "0.0.0.0"))
-    port = _from_env("PORT", _server_get(c, "port", 9001), int)
-    debug_env = os.environ.get("DEBUG")
-    if debug_env is not None:
-        debug = debug_env.lower() in ("1", "true", "yes")
-    else:
-        debug = bool(_server_get(c, "debug", False))
+    host = str(_server_get(c, "host", "0.0.0.0"))
+    port = _to_int(_server_get(c, "port", 9001), 9001)
+    debug = _to_bool(_server_get(c, "debug", False), False)
 
-    api_url = str(_from_env("LLM_API_URL", _llm_get(c, "api_url", ""))).rstrip("/")
-    api_key = str(_from_env("LLM_API_KEY", _llm_get(c, "api_key", "")))
-    model = str(_from_env("LLM_MODEL", _llm_get(c, "model", "")))
-    timeout = _from_env("LLM_TIMEOUT", _llm_get(c, "timeout_seconds", 300), int)
+    api_url = str(_llm_get(c, "api_url", "")).rstrip("/")
+    api_key = str(_llm_get(c, "api_key", ""))
+    model = str(_llm_get(c, "model", ""))
+    timeout = _to_int(_llm_get(c, "timeout_seconds", 300), 300)
     service_name = str(_service_get(c, "name", "video-analyze"))
-    llm_concurrency = _from_env(
-        "LLM_CONCURRENCY", _llm_get(c, "concurrency", 5), int
-    )
-
-    log_to_file_env = os.environ.get("LOG_TO_FILE")
-    if log_to_file_env is not None:
-        log_to_file = log_to_file_env.lower() in ("1", "true", "yes")
-    else:
-        log_to_file = bool(_server_get(c, "log_to_file", True))
+    llm_concurrency = _to_int(_llm_get(c, "concurrency", 5), 5)
+    log_to_file = _to_bool(_server_get(c, "log_to_file", True), True)
+    auth_tokens = str(_auth_get(c, "tokens", ""))
 
     return Settings(
         host=host,
@@ -122,15 +125,16 @@ def _build_settings() -> "Settings":
         service_name=service_name,
         llm_concurrency=llm_concurrency,
         log_to_file=log_to_file,
+        auth_tokens=auth_tokens,
         http_client=None,
         # -------- Nacos 服务注册配置 --------
-        nacos_enabled=_from_env("NACOS_ENABLED", _nacos_get(c, "enabled", "true")),
-        nacos_server_addr=_from_env("NACOS_SERVER_ADDR", _nacos_get(c, "server_addr", "127.0.0.1:8848")),
-        nacos_service_name=_from_env("NACOS_SERVICE_NAME", _nacos_get(c, "service_name", "video-analyze-service")),
-        nacos_namespace=_from_env("NACOS_NAMESPACE", _nacos_get(c, "namespace", "")),
-        nacos_group=_from_env("NACOS_GROUP", _nacos_get(c, "group", "DEFAULT_GROUP")),
-        nacos_username=_from_env("NACOS_USERNAME", _nacos_get(c, "username", "nacos")),
-        nacos_password=_from_env("NACOS_PASSWORD", _nacos_get(c, "password", "nacos")),
+        nacos_enabled=_to_bool(_nacos_get(c, "enabled", True), True),
+        nacos_server_addr=str(_nacos_get(c, "server_addr", "127.0.0.1:8848")),
+        nacos_service_name=str(_nacos_get(c, "service_name", "video-analyze-service")),
+        nacos_namespace=str(_nacos_get(c, "namespace", "")),
+        nacos_group=str(_nacos_get(c, "group", "DEFAULT_GROUP")),
+        nacos_username=str(_nacos_get(c, "username", "nacos")),
+        nacos_password=str(_nacos_get(c, "password", "nacos")),
     )
 
 
@@ -146,9 +150,10 @@ class Settings:
     service_name: str
     llm_concurrency: int
     log_to_file: bool
+    auth_tokens: str
     http_client: Optional[httpx.AsyncClient]
     # -------- Nacos 服务注册配置 --------
-    nacos_enabled: str
+    nacos_enabled: bool
     nacos_server_addr: str
     nacos_service_name: str
     nacos_namespace: str

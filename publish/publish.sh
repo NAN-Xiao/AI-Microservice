@@ -20,7 +20,7 @@ set -euo pipefail
 REMOTE_HOST="10.1.6.76"
 REMOTE_USER="${REMOTE_USER:-root}"
 REMOTE_PASS="${REMOTE_PASS:-ELEXtech%0609}"  # 默认密码，可通过环境变量覆盖
-REMOTE_BASE="/home/AI-Microservice2"         # 服务器上的部署根目录
+REMOTE_BASE="/home/AI-Microservice"         # 服务器上的部署根目录
 
 # 本地项目根目录（脚本的上一级）
 LOCAL_BASE="$(cd "$(dirname "$0")/.." && pwd)"
