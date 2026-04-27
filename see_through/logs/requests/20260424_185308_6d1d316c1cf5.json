@@ -1,0 +1,9 @@
+{
+  "mode": "convert",
+  "status": "failed",
+  "filename": "222.png",
+  "content_type": "image/png",
+  "size_bytes": 383590,
+  "queue_wait_ms": 0.0,
+  "error": "工作流执行完成，但未能从 seethrough_psd_info.log 获取 layers.json 文件名"
+}

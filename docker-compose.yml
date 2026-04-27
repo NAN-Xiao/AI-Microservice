@@ -79,6 +79,9 @@ services:
       - ai-net
 
   # ---------- Video Analyze ----------
+  # 所有配置均来自 ./video_analyze/settings.yaml（挂载为只读），不再使用 .env 变量。
+  # ⚠ docker-compose 场景下，settings.yaml 里的 nacos.server_addr 应为 "nacos:8848"
+  #    （走容器间 DNS），而 publish.sh 直接部署到物理机则按 "127.0.0.1:8848" 配。
   video-analyze:
     build:
       context: ./video_analyze
@@ -87,20 +90,9 @@ services:
     restart: unless-stopped
     ports:
       - "9001:9001"
-    environment:
-      - HOST=0.0.0.0
-      - PORT=9001
-      - DEBUG=false
-      - LOG_TO_FILE=true
-      - LLM_API_URL=https://aikey.elex-tech.com/v1
-      - LLM_API_KEY=${VIDEO_ANALYZE_LLM_KEY:?请设置 VIDEO_ANALYZE_LLM_KEY}
-      - LLM_MODEL=qwen3.5-plus
-      - LLM_TIMEOUT=600
-      - AUTH_TOKENS=${AUTH_TOKENS:-}
-      - NACOS_ADDR=nacos:8848
     volumes:
       - ./video_analyze/logs:/app/logs
-      - ./video_analyze/tmp_uploads:/app/tmp_uploads
+      - ./video_analyze/settings.yaml:/app/settings.yaml:ro
     depends_on:
       nacos:
         condition: service_healthy
@@ -146,6 +138,39 @@ services:
     networks:
       - ai-net
 
+  # ---------- See Through ----------
+  see-through:
+    build:
+      context: ./see_through
+      dockerfile: Dockerfile
+    container_name: see-through
+    restart: unless-stopped
+    ports:
+      - "9004:9004"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9004
+      - DEBUG=false
+      - LOG_TO_FILE=true
+      - COMFYUI_BASE_URL=${SEE_THROUGH_COMFYUI_BASE_URL:?请设置 SEE_THROUGH_COMFYUI_BASE_URL}
+      - COMFYUI_TIMEOUT=300
+      - COMFYUI_POLL_INTERVAL=1
+      - AUTH_TOKENS=${AUTH_TOKENS:-}
+      - NACOS_ADDR=nacos:8848
+    volumes:
+      - ./see_through/logs:/app/logs
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9004/api/see-through/health/live')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - ai-net
+
   # ==================== 反向代理 ====================
 
   nginx:
@@ -165,6 +190,8 @@ services:
       video-analyze:
         condition: service_healthy
       image2psd:
+        condition: service_healthy
+      see-through:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/nginx-health"]
