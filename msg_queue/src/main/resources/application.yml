@@ -1,0 +1,14 @@
+server:
+  port: 8090
+
+queue:
+  max-size: 200
+  worker-count: 1
+  worker-delay-ms: 0
+  long-task-path-prefixes:
+    - /report/generate
+    - /order/settle
+
+logging:
+  level:
+    root: INFO
