@@ -7,7 +7,8 @@
 #   ./publish.sh                    # 发布全部服务（交互输入密码）
 #   ./publish.sh ui_builder         # 只发布 ui_builder
 #   ./publish.sh video_analyze      # 只发布 video_analyze
-#   ./publish.sh ui_builder video_analyze # 发布多个指定服务
+#   ./publish.sh see_through        # 只发布 see_through
+#   ./publish.sh ui_builder video_analyze see_through # 发布多个指定服务
 #
 # 选项（环境变量）:
 #   REMOTE_PASS=xxx ./publish.sh   # 非交互模式（CI/脚本调用）
@@ -114,6 +115,7 @@ get_service_port() {
     case "$1" in
         ui_builder)    echo "9002" ;;
         video_analyze) echo "9001" ;;
+        see_through)   echo "9004" ;;
         *)             echo ""     ;;
     esac
 }
@@ -216,6 +218,7 @@ publish_python_service() {
 
 publish_ui_builder()    { publish_python_service "ui_builder";    }
 publish_video_analyze() { publish_python_service "video_analyze"; }
+publish_see_through()   { publish_python_service "see_through";   }
 
 # ── 健康检查 ───────────────────────────────────────────────────
 health_check() {
@@ -224,6 +227,7 @@ health_check() {
     local checks=(
         "ui_builder|9002|http://127.0.0.1:9002/api/ui-builder/health"
         "video_analyze|9001|http://127.0.0.1:9001/api/video-analyze/health"
+        "see_through|9004|http://127.0.0.1:9004/api/see-through/health"
     )
     for check in "${checks[@]}"; do
         IFS='|' read -r name port url <<< "${check}"
@@ -259,15 +263,16 @@ main() {
 
     local targets=("$@")
     if [ ${#targets[@]} -eq 0 ]; then
-        targets=("ui_builder" "video_analyze")
+        targets=("ui_builder" "video_analyze" "see_through")
     fi
 
     for target in "${targets[@]}"; do
         case "${target}" in
             ui_builder)    publish_ui_builder    ;;
             video_analyze) publish_video_analyze ;;
+            see_through)   publish_see_through   ;;
             *)
-                red "未知服务: ${target}（可选: ui_builder / video_analyze）"
+                red "未知服务: ${target}（可选: ui_builder / video_analyze / see_through）"
                 exit 1
                 ;;
         esac

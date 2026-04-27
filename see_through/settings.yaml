@@ -1,0 +1,30 @@
+# see_through 本地配置
+# 直接修改本文件并重启服务即可生效
+
+server:
+  host: "0.0.0.0"
+  port: 9004
+  debug: false
+  log_to_file: true
+
+service:
+  name: "see_through"
+
+comfyui:
+  base_url: "http://127.0.0.1:8188"
+  timeout_seconds: 300
+  poll_interval_seconds: 1
+  concurrency: 0
+  workflow_path: "resources/workflow.json"
+  workflow_input_node_id: "27"
+  workflow_input_field: "image"
+  client_id: ""
+
+nacos:
+  enabled: true
+  server_addr: "127.0.0.1:8848"
+  service_name: "see-through-service"
+  namespace: ""
+  group: "DEFAULT_GROUP"
+  username: "nacos"
+  password: "nacos"

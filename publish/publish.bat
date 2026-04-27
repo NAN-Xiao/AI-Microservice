@@ -7,7 +7,8 @@ REM Usage:
 REM   publish.bat
 REM   publish.bat ui_builder
 REM   publish.bat video_analyze
-REM   publish.bat ui_builder video_analyze
+REM   publish.bat see_through
+REM   publish.bat ui_builder video_analyze see_through
 REM
 REM Optional environment variables:
 REM   REMOTE_USER
@@ -57,12 +58,13 @@ endlocal & exit /b %EXIT_CODE%
 
 :usage
 echo Usage:
-echo   publish.bat [ui_builder] [video_analyze]
+echo   publish.bat [ui_builder] [video_analyze] [see_through]
 echo.
 echo Examples:
 echo   publish.bat
 echo   publish.bat ui_builder
 echo   publish.bat video_analyze
+echo   publish.bat see_through
 echo.
 echo Optional env:
 echo   set REMOTE_USER=root

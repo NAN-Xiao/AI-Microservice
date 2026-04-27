@@ -1,15 +1,13 @@
 """
 See Through 配置。
 加载顺序：
-1. settings.example.yaml
-2. settings.yaml（可通过 SEE_THROUGH_CONFIG 指定）
-3. 环境变量覆盖
+1. settings.yaml（可通过 SEE_THROUGH_CONFIG 指定）
+2. 环境变量覆盖
 """
 
 from __future__ import annotations
 
 import os
-from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -18,18 +16,7 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-_EXAMPLE_PATH = PROJECT_ROOT / "settings.example.yaml"
 _LOCAL_PATH = Path(os.environ.get("SEE_THROUGH_CONFIG", str(PROJECT_ROOT / "settings.yaml")))
-
-
-def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
-    out = deepcopy(base)
-    for k, v in overlay.items():
-        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
-            out[k] = _deep_merge(out[k], v)
-        else:
-            out[k] = v
-    return out
 
 
 def _load_yaml(path: Path) -> dict[str, Any]:
@@ -41,11 +28,7 @@ def _load_yaml(path: Path) -> dict[str, Any]:
 
 
 def _load_file_config() -> dict[str, Any]:
-    example = _load_yaml(_EXAMPLE_PATH)
-    local = _load_yaml(_LOCAL_PATH)
-    if not example and not local:
-        return {}
-    return _deep_merge(example, local)
+    return _load_yaml(_LOCAL_PATH)
 
 
 def _section_get(cfg: dict[str, Any], section: str, key: str, default: Any) -> Any:
