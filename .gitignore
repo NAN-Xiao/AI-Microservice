@@ -21,9 +21,10 @@ __pycache__/
 *.pyo
 .env
 
-# Python 微服务本地密钥（各自独立，从各目录的 settings.example.yaml 复制）
+# Python 微服务本地密钥（各自独立，含真实 LLM key，勿提交）
 ui_builder/settings.yaml
 video_analyze/settings.yaml
+see_through/settings.yaml
 
 # OS
 .DS_Store

@@ -1,0 +1,8 @@
+{
+  "mode": "convert",
+  "status": "failed",
+  "filename": "112.jpg",
+  "content_type": "image/jpeg",
+  "size_bytes": 248528,
+  "error": "工作流执行完成，但未找到 layers.json 输出文件。已发现文件: ComfyUI_temp_jkpez_00001_.png"
+}

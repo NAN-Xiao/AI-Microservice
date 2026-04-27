@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>上传图片</title>
+  <style>
+    :root {
+      --bg: #111315;
+      --panel: #1a1d21;
+      --ink: #f3f4f6;
+      --muted: #a1a1aa;
+      --accent: #22c55e;
+      --accent-2: #3b82f6;
+      --line: #2b3138;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(720px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    .hero {
+      padding: 0 0 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    form {
+      padding: 24px 0 0;
+      display: grid;
+      gap: 18px;
+    }
+
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #111315;
+      color: var(--ink);
+      font: inherit;
+    }
+
+    .file-name {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 12px 20px;
+      min-width: 160px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      color: white;
+      background: var(--accent);
+    }
+
+    button[disabled] {
+      opacity: 0.6;
+      cursor: wait;
+      box-shadow: none;
+    }
+
+    .service-tip {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .service-tip.ok {
+      color: #86efac;
+    }
+
+    .service-tip.error {
+      color: #fca5a5;
+    }
+
+    .status {
+      min-height: 24px;
+      font-size: 14px;
+      color: var(--muted);
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #15181c;
+      border: 1px solid transparent;
+    }
+
+    .status.error {
+      color: #fecaca;
+      background: rgba(127, 29, 29, 0.22);
+      border-color: rgba(248, 113, 113, 0.28);
+    }
+
+    .status.ok {
+      color: #bbf7d0;
+      background: rgba(20, 83, 45, 0.22);
+      border-color: rgba(74, 222, 128, 0.2);
+    }
+
+    .status.info {
+      color: #d4d4d8;
+      background: #15181c;
+      border-color: rgba(161, 161, 170, 0.18);
+    }
+
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="hero">
+      <h1>上传图片</h1>
+      <p>上传一张角色图片，建议用白色背景，透明度为0的png图片。</p>
+    </div>
+
+    <form id="upload-form">
+      <label>
+        图片文件
+        <input id="image" type="file" accept="image/png,image/jpeg,image/webp,image/bmp" required>
+        <div id="file-name" class="file-name">未选择任何文件</div>
+      </label>
+
+      <div class="actions">
+        <button id="submit-btn" type="submit">上传图片</button>
+      </div>
+
+      <div id="service-tip" class="service-tip">正在获取服务状态...</div>
+
+      <div id="status" class="status"></div>
+    </form>
+  </div>
+
+  <script>
+    const form = document.getElementById("upload-form");
+    const imageInput = document.getElementById("image");
+    const fileNameEl = document.getElementById("file-name");
+    const submitBtn = document.getElementById("submit-btn");
+    const serviceTip = document.getElementById("service-tip");
+    const statusEl = document.getElementById("status");
+    let phase = "upload";
+    let downloadState = null;
+    let healthTimer = null;
+    const canUseNativeSavePicker = Boolean(
+      window.showSaveFilePicker &&
+      window.isSecureContext &&
+      window.top === window.self
+    );
+
+    function setStatus(message, kind = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${kind}`.trim();
+    }
+
+    function updateSelectedFileName(name = "") {
+      fileNameEl.textContent = name || "未选择任何文件";
+    }
+
+    function setServiceTip(message, kind = "") {
+      serviceTip.textContent = message;
+      serviceTip.className = `service-tip ${kind}`.trim();
+    }
+
+    function resetDownloadState() {
+      downloadState = null;
+      phase = "upload";
+      imageInput.disabled = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = "上传图片";
+    }
+
+    function clearDownloadStateOnly() {
+      downloadState = null;
+      phase = "upload";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "上传图片";
+    }
+
+    function setProcessingState() {
+      phase = "processing";
+      imageInput.disabled = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = "处理中...";
+    }
+
+    function setReadyToDownloadState(filename) {
+      phase = "download";
+      imageInput.disabled = true;
+      submitBtn.disabled = false;
+      submitBtn.textContent = "下载";
+      setStatus("处理完成，请点击下载。", "ok");
+    }
+
+    async function cleanupResult(cleanupToken) {
+      if (!cleanupToken) {
+        return;
+      }
+
+      try {
+        await fetch("/api/see-through/cleanup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ token: cleanupToken })
+        });
+      } catch (_) {
+      }
+    }
+
+    async function saveBlobToDisk(blob, filename) {
+      if (canUseNativeSavePicker) {
+        try {
+          const suggestedName = filename || "result.psd";
+          const handle = await window.showSaveFilePicker({
+            suggestedName,
+            types: [
+              {
+                description: "PSD 文件",
+                accept: {
+                  "application/octet-stream": [".psd"],
+                  "image/vnd.adobe.photoshop": [".psd"]
+                }
+              }
+            ]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return "picker";
+        } catch (error) {
+          if (error && error.name === "AbortError") {
+            throw error;
+          }
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return "browser";
+    }
+
+    async function checkHealth() {
+      try {
+        const res = await fetch("/api/see-through/health");
+        if (!res.ok) {
+          setServiceTip(`服务状态获取失败（HTTP ${res.status}）`, "error");
+          return;
+        }
+        const data = await res.json();
+        const ready = data?.data?.ready;
+        setServiceTip(ready ? "服务可用" : "服务不可用", ready ? "ok" : "error");
+      } catch (error) {
+        setServiceTip("服务不可用", "error");
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (phase === "download") {
+        if (!downloadState) {
+          setStatus("当前没有可下载的结果。", "error");
+          resetDownloadState();
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "保存中...";
+        setStatus("正在保存文件...", "");
+
+        const currentState = downloadState;
+        try {
+          const saveMode = await saveBlobToDisk(currentState.blob, currentState.filename);
+          await cleanupResult(currentState.cleanupToken);
+          resetDownloadState();
+          if (saveMode === "picker") {
+            setStatus("下载完成，已清理本次缓存。", "ok");
+          } else {
+            setStatus("已触发浏览器下载，已清理本次缓存。", "ok");
+          }
+        } catch (error) {
+          phase = "download";
+          imageInput.disabled = true;
+          submitBtn.disabled = false;
+          submitBtn.textContent = "下载";
+          if (error && error.name === "AbortError") {
+            setStatus("已取消保存，请重新点击下载。", "error");
+            return;
+          }
+          setStatus(`下载失败：${error.message || error}`, "error");
+        }
+        return;
+      }
+
+      const file = imageInput.files[0];
+      if (!file) {
+        setStatus("请先选择图片文件", "error");
+        return;
+      }
+
+      clearDownloadStateOnly();
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      setProcessingState();
+      setStatus("图片已上传，正在处理中。这个过程可能持续几分钟...", "info");
+
+      try {
+        const res = await fetch("/api/see-through/convert", {
+          method: "POST",
+          body: formData
+        });
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok || !contentType.includes("application/octet-stream")) {
+          const text = await res.text();
+          setStatus(`处理失败：HTTP ${res.status} ${text}`, "error");
+          resetDownloadState();
+          return;
+        }
+
+        const blob = await res.blob();
+        const disposition = res.headers.get("content-disposition") || "";
+        const matched = disposition.match(/filename="([^"]+)"/i);
+        const filename = matched ? matched[1] : `${file.name.replace(/\.[^.]+$/, "")}.psd`;
+        const cleanupToken = res.headers.get("x-cleanup-token") || "";
+
+        downloadState = {
+          blob,
+          filename,
+          cleanupToken
+        };
+        setReadyToDownloadState(filename);
+      } catch (error) {
+        setStatus(`处理失败：${error.message}`, "error");
+        resetDownloadState();
+      }
+    });
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      updateSelectedFileName(file ? file.name : "");
+    });
+
+    checkHealth();
+    healthTimer = window.setInterval(checkHealth, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[project]
+name = "comfyui-cleanup-delete-route"
+description = "Adds a small delete API route to ComfyUI for per-request file cleanup."
+version = "0.1.0"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.comfy]
+PublisherId = "local"
+DisplayName = "ComfyUI Cleanup Delete Route"
+Icon = ""

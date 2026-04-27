@@ -1,0 +1,111 @@
+{
+  "20": {
+    "inputs": {
+      "layers_depth": [
+        "23",
+        0
+      ],
+      "tblr_split": true,
+      "use_lama": true
+    },
+    "class_type": "SeeThrough_PostProcess",
+    "_meta": {
+      "title": "SeeThrough Post Process"
+    }
+  },
+  "21": {
+    "inputs": {
+      "parts": [
+        "20",
+        0
+      ],
+      "filename_prefix": "seethrough"
+    },
+    "class_type": "SeeThrough_SavePSD",
+    "_meta": {
+      "title": "SeeThrough Save PSD"
+    }
+  },
+  "22": {
+    "inputs": {
+      "images": [
+        "20",
+        1
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "Preview Image"
+    }
+  },
+  "23": {
+    "inputs": {
+      "layers": [
+        "24",
+        0
+      ],
+      "depth_model": [
+        "25",
+        0
+      ],
+      "seed": 1091757904,
+      "resolution_depth": -1
+    },
+    "class_type": "SeeThrough_GenerateDepth",
+    "_meta": {
+      "title": "SeeThrough Generate Depth"
+    }
+  },
+  "24": {
+    "inputs": {
+      "image": [
+        "27",
+        0
+      ],
+      "layerdiff_model": [
+        "26",
+        0
+      ],
+      "seed": 2009245359,
+      "resolution": 1024,
+      "num_inference_steps": 30
+    },
+    "class_type": "SeeThrough_GenerateLayers",
+    "_meta": {
+      "title": "SeeThrough Generate Layers"
+    }
+  },
+  "25": {
+    "inputs": {
+      "model": "layerdifforg/seethroughv0.0.1_marigold",
+      "cache_tag_embeds": true,
+      "group_offload": false
+    },
+    "class_type": "SeeThrough_LoadDepthModel",
+    "_meta": {
+      "title": "SeeThrough Load Depth Model"
+    }
+  },
+  "26": {
+    "inputs": {
+      "model": "layerdifforg/seethroughv0.0.2_layerdiff3d",
+      "vae_ckpt": "",
+      "unet_ckpt": "",
+      "cache_tag_embeds": true,
+      "group_offload": false
+    },
+    "class_type": "SeeThrough_LoadLayerDiffModel",
+    "_meta": {
+      "title": "SeeThrough Load LayerDiff Model"
+    }
+  },
+  "27": {
+    "inputs": {
+      "image": "input.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  }
+}

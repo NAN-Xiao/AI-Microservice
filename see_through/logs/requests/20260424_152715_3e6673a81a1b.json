@@ -1,0 +1,8 @@
+{
+  "mode": "convert",
+  "status": "failed",
+  "filename": "LDS-Kabas立绘.png",
+  "content_type": "image/png",
+  "size_bytes": 2824800,
+  "error": "工作流执行完成，但未能从 seethrough_psd_info.log 获取 layers.json 文件名"
+}

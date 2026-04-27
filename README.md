@@ -6,7 +6,9 @@
 
 ```
 客户端 → Nginx (80/443) → Java Gateway (8080) ──┬── /api/video-analyze/** → video_analyze Agent (Python, 9001)
-                                                └── /api/ui-builder/**    → ui_builder Agent   (Python, 9002)
+                                                ├── /api/ui-builder/**    → ui_builder Agent   (Python, 9002)
+                                                ├── /api/image2psd/**     → image2psd Agent    (Python, 9003)
+                                                └── /api/see-through/**   → see_through Agent  (Python, 9004)
 
 各 Agent ──→ LLM 服务器
 ```
@@ -36,6 +38,8 @@ AI-Microservice/
 │           └── application.yml
 ├── video_analyze/            # 视频分析 Agent (Python FastAPI, 9001)
 ├── ui_builder/               # UI 构建 Agent (Python FastAPI, 9002)
+├── image2psd/                # 图片转 PSD Agent (Python FastAPI, 9003)
+├── see_through/              # See Through Agent (Python FastAPI, 9004)
 └── nginx/                    # Nginx 边缘入口配置
     └── nginx.conf
 ```
@@ -105,6 +109,8 @@ GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:3000,http://127.0.0.1:5173
 |------|---------|------|
 | `/api/video-analyze/**` | `http://127.0.0.1:9001` | 视频分析服务 |
 | `/api/ui-builder/**` | `http://127.0.0.1:9002` | UI 构建服务 |
+| `/api/image2psd/**` | `http://127.0.0.1:9003` | 图片转 PSD 服务 |
+| `/api/see-through/**` | `http://127.0.0.1:9004` | See Through 图片转 PSD 服务 |
 | `/gateway-health` | 网关自身 | 网关健康检查 |
 | `/actuator/health` | 网关自身 | Actuator 健康检查 |
 
@@ -123,6 +129,20 @@ GATEWAY_CORS_ALLOWED_ORIGIN_PATTERNS=http://localhost:3000,http://127.0.0.1:5173
 |------|------|
 | `POST /api/ui-builder/analyze` | UI 截图分析（上传图片） |
 | `GET /api/ui-builder/health` | 健康检查 |
+
+### image2psd (端口 9003)
+
+| 接口 | 说明 |
+|------|------|
+| `POST /api/image2psd/convert` | 图片转 PSD |
+| `GET /api/image2psd/health` | 健康检查 |
+
+### see_through (端口 9004)
+
+| 接口 | 说明 |
+|------|------|
+| `POST /api/see-through/convert` | 上传图片，调用内网 ComfyUI，返回 PSD |
+| `GET /api/see-through/health` | 健康检查 |
 
 ## 新增 Agent
 

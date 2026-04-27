@@ -1,0 +1,8 @@
+{
+  "mode": "convert",
+  "status": "failed",
+  "filename": "112.jpg",
+  "content_type": "image/jpeg",
+  "size_bytes": 248528,
+  "error": "调用 ComfyUI 失败"
+}
