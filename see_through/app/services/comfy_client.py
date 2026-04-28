@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import uuid
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import httpx
@@ -22,6 +22,9 @@ logger = logging.getLogger(__name__)
 
 class ComfyError(Exception):
     pass
+
+
+SAVE_PSD_NODE_ID = "21"
 
 
 def _load_workflow_template() -> dict[str, Any]:
@@ -67,7 +70,11 @@ def _inject_uploaded_image(workflow: dict[str, Any], uploaded_name: str) -> dict
     return workflow
 
 
-def _inject_filename_prefix(workflow: dict[str, Any], filename_prefix: str, node_id: str = "21") -> dict[str, Any]:
+def _inject_filename_prefix(
+    workflow: dict[str, Any],
+    filename_prefix: str,
+    node_id: str = SAVE_PSD_NODE_ID,
+) -> dict[str, Any]:
     node = workflow.get(node_id)
     if not isinstance(node, dict):
         return workflow
@@ -78,18 +85,47 @@ def _inject_filename_prefix(workflow: dict[str, Any], filename_prefix: str, node
     return workflow
 
 
+def _normalize_output_file(
+    filename: str,
+    subfolder: str = "",
+    file_type: str = "output",
+) -> dict[str, str]:
+    raw_filename = str(filename or "").strip().replace("\\", "/")
+    raw_subfolder = str(subfolder or "").strip().replace("\\", "/").strip("/")
+
+    if raw_filename and not raw_subfolder and "/" in raw_filename:
+        path = PurePosixPath(raw_filename)
+        parent = str(path.parent)
+        if parent and parent != ".":
+            raw_filename = path.name
+            raw_subfolder = parent
+
+    return {
+        "filename": raw_filename,
+        "subfolder": raw_subfolder,
+        "type": str(file_type or "output"),
+    }
+
+
+def _basename_matches_prefix(filename: str, filename_prefix: str) -> bool:
+    basename = PurePosixPath(str(filename or "").replace("\\", "/")).name
+    return basename.startswith(filename_prefix) and basename.endswith("_layers.json")
+
+
 def _extract_file_candidates(value: Any, out: list[dict[str, str]]) -> None:
     if isinstance(value, dict):
         if "filename" in value and isinstance(value["filename"], str):
-            out.append(
-                {
-                    "filename": value["filename"],
-                    "subfolder": str(value.get("subfolder", "")),
-                    "type": str(value.get("type", "output")),
-                }
-            )
+            out.append(_normalize_output_file(
+                value["filename"],
+                str(value.get("subfolder", "")),
+                str(value.get("type", "output")),
+            ))
         for v in value.values():
             _extract_file_candidates(v, out)
+    elif isinstance(value, str):
+        lowered = value.lower()
+        if lowered.endswith("_layers.json") or (lowered.endswith(".json") and "layer" in lowered):
+            out.append(_normalize_output_file(value))
     elif isinstance(value, list):
         for item in value:
             _extract_file_candidates(item, out)
@@ -236,10 +272,15 @@ async def _wait_for_history(client: httpx.AsyncClient, base_url: str, prompt_id:
 
 
 async def _download_file(client: httpx.AsyncClient, base_url: str, output_file: dict[str, str]) -> bytes:
+    normalized = _normalize_output_file(
+        output_file["filename"],
+        output_file.get("subfolder", ""),
+        output_file.get("type", "output"),
+    )
     params = {
-        "filename": output_file["filename"],
-        "subfolder": output_file["subfolder"],
-        "type": output_file["type"],
+        "filename": normalized["filename"],
+        "subfolder": normalized["subfolder"],
+        "type": normalized["type"],
     }
     resp = await client.get(f"{base_url}/view", params=params)
     resp.raise_for_status()
@@ -268,14 +309,26 @@ def _resolve_download_file(
     history_files: list[dict[str, str]],
     fallback: dict[str, str],
 ) -> dict[str, str]:
+    normalized_target = _normalize_output_file(filename)
     for item in history_files:
-        if item["filename"] == filename:
+        normalized_item = _normalize_output_file(
+            item["filename"],
+            item.get("subfolder", ""),
+            item.get("type", "output"),
+        )
+        if (
+            normalized_item["filename"] == normalized_target["filename"]
+            and normalized_item["subfolder"] == normalized_target["subfolder"]
+        ):
             return item
-    return {
-        "filename": filename,
-        "subfolder": fallback.get("subfolder", ""),
-        "type": "output" if fallback.get("type") == "temp" else fallback.get("type", "output"),
-    }
+    fallback_subfolder = fallback.get("subfolder", "")
+    if normalized_target["subfolder"]:
+        fallback_subfolder = normalized_target["subfolder"]
+    return _normalize_output_file(
+        normalized_target["filename"],
+        fallback_subfolder,
+        "output" if fallback.get("type") == "temp" else fallback.get("type", "output"),
+    )
 
 
 async def _build_psd_bytes(
@@ -345,11 +398,7 @@ def _collect_cleanup_targets(
     def add_target(filename: str | None, file_type: str, subfolder: str = "") -> None:
         if not isinstance(filename, str) or not filename.strip():
             return
-        entry = {
-            "filename": filename.strip(),
-            "subfolder": subfolder,
-            "type": file_type,
-        }
+        entry = _normalize_output_file(filename.strip(), subfolder, file_type)
         if entry not in targets:
             targets.append(entry)
 
@@ -385,39 +434,31 @@ async def _wait_for_layers_info_file(
     timeout: int = 15,
 ) -> dict[str, str]:
     start = time.monotonic()
+    legacy_logs = [
+        _normalize_output_file("seethrough_psd_info.log"),
+        _normalize_output_file(f"seethrough/node_{SAVE_PSD_NODE_ID}/latest.log"),
+    ]
 
     while True:
         if time.monotonic() - start > timeout:
-            raise ComfyError("工作流执行完成，但未能从 seethrough_psd_info.log 获取 layers.json 文件名")
+            raise ComfyError("工作流执行完成，但未能定位 layers.json 输出文件")
 
         try:
             listed = await _list_output_directory_files(client, base_url)
             for name in listed:
-                if name.startswith(filename_prefix) and name.endswith("_layers.json"):
-                    return {
-                        "filename": name,
-                        "subfolder": "",
-                        "type": "output",
-                    }
+                if _basename_matches_prefix(name, filename_prefix):
+                    return _normalize_output_file(name)
         except Exception:
             pass
 
-        try:
-            log_file = {
-                "filename": "seethrough_psd_info.log",
-                "subfolder": "",
-                "type": "output",
-            }
-            content = await _download_file(client, base_url, log_file)
-            info_filename = content.decode("utf-8").strip()
-            if info_filename and info_filename.startswith(filename_prefix) and info_filename.endswith("_layers.json"):
-                return {
-                    "filename": info_filename,
-                    "subfolder": "",
-                    "type": "output",
-                }
-        except Exception:
-            pass
+        for log_file in legacy_logs:
+            try:
+                content = await _download_file(client, base_url, log_file)
+                info_filename = content.decode("utf-8").strip()
+                if _basename_matches_prefix(info_filename, filename_prefix):
+                    return _normalize_output_file(info_filename)
+            except Exception:
+                continue
 
         await asyncio_sleep(0.5)
 
