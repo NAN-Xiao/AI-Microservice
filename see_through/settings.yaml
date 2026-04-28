@@ -11,7 +11,7 @@ service:
   name: "see_through"
 
 comfyui:
-  base_url: "http://127.0.0.1:8188"
+  base_url: "http://10.1.5.194:8188"
   timeout_seconds: 300
   poll_interval_seconds: 1
   concurrency: 0
