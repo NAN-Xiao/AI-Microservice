@@ -1,0 +1,10 @@
+{
+  "mode": "convert",
+  "status": "completed",
+  "filename": "112.jpg",
+  "content_type": "image/jpeg",
+  "size_bytes": 248528,
+  "queue_wait_ms": 0.0,
+  "output_name": "112.psd",
+  "output_size_bytes": 15980058
+}

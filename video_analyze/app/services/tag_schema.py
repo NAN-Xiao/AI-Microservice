@@ -97,10 +97,11 @@ def validate_tag_schema(tags: dict) -> list[str]:
     return errors
 
 
-def build_tag_prompt(*, override_tags: dict | None = None) -> str:
+def build_tag_prompt(*, override_tags: dict | None = None, extra_prompt: str = "") -> str:
     """
     构建视频分析提示词。
     override_tags: 调用方传入的自定义标签体系，不传则使用服务端默认 video_tags.json。
+    extra_prompt: 用户额外提示词，会追加到 prompt 末尾。
     """
     tags = override_tags if override_tags is not None else get_tag_schema()
 
@@ -118,8 +119,8 @@ def build_tag_prompt(*, override_tags: dict | None = None) -> str:
 
     extra_rules = _load_prompt_file()
 
-    return (
-        "请先分析视频，再严格按以下要求输出结果：\n\n"
+    parts = [
+        "请先分析视频，再严格按以下要求输出结果：\n",
         "一、最终答案只能输出一个 JSON 对象，不能输出任何 JSON 之外的内容。\n"
         "二、不要输出标题、说明、注释、前言、后记、分析报告、时间轴、营销总结、投放建议或可优化建议。\n"
         "三、JSON 的对象结构必须完全按照 tags.json 的结构。\n"
@@ -127,13 +128,19 @@ def build_tag_prompt(*, override_tags: dict | None = None) -> str:
         "五、每个二级字段的值必须是数组；采用宽松输出策略，只要能基于画面、字幕、配音、节奏、镜头语言、营销表达做出高概率判断，就应优先填写标签；只有确实没有依据时才输出空数组 []。\n"
         "六、【最重要】数组中的每一个值必须是下方「候选标签范围」中的原文，逐字匹配，禁止自造标签、改写近义词、缩写、合并或拆分。任何不在候选列表中的标签都会被系统自动丢弃，等于白写。\n"
         "七、输出目标偏向高召回，不要因为不是百分百确定就把大量字段留空。\n"
-        "八、如果输出结果不是一个合法 JSON 对象，请先自检并修正，再输出最终答案。\n\n"
-        "标签 JSON 结构模板（必须严格照此结构输出）：\n"
-        f"{json.dumps(tag_skeleton, ensure_ascii=False, indent=2)}\n\n"
-        "候选标签范围（只能从以下列表中逐字选择，系统会校验每一个标签，不在此列表中的会被自动删除）：\n"
-        f"{chr(10).join(allowed_lines).strip()}\n\n"
-        f"{extra_rules}".strip()
-    )
+        "八、如果输出结果不是一个合法 JSON 对象，请先自检并修正，再输出最终答案。\n",
+        "标签 JSON 结构模板（必须严格照此结构输出）：\n",
+        json.dumps(tag_skeleton, ensure_ascii=False, indent=2),
+        "\n候选标签范围（只能从以下列表中逐字选择，系统会校验每一个标签，不在此列表中的会被自动删除）：\n",
+        chr(10).join(allowed_lines).strip(),
+    ]
+
+    if extra_rules:
+        parts.extend(["\n", extra_rules])
+    if extra_prompt:
+        parts.extend(["\n\n## 用户补充要求\n", extra_prompt.strip()])
+
+    return "".join(parts).strip()
 
 
 def sanitize_tags(raw: dict, *, override_tags: dict | None = None) -> tuple[dict, list[str]]:

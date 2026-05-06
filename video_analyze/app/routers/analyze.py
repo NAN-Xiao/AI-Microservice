@@ -43,7 +43,8 @@ def _get_semaphore() -> asyncio.Semaphore:
 
 class AnalyzeRequest(BaseModel):
     video_url: str
-    tags: dict | None = None  # 可选：调用方自定义标签体系，不传则使用服务端默认
+    tags: dict | None = None      # 可选：调用方自定义标签体系，不传则使用服务端默认
+    prompt: str | None = None     # 可选：用户额外提示词，会追加到系统 prompt 末尾
 
     @field_validator("video_url")
     @classmethod
@@ -83,7 +84,7 @@ async def analyze(req: AnalyzeRequest):
 
     step_start(request_id, "同步分析")
     try:
-        prompt = build_tag_prompt(override_tags=req.tags)
+        prompt = build_tag_prompt(override_tags=req.tags, extra_prompt=req.prompt or "")
         async with _get_semaphore():
             result_text = await llm_service.analyze(req.video_url, prompt)
         raw_tags = _parse_json_result(result_text)
@@ -178,7 +179,7 @@ async def submit_task(req: AnalyzeRequest):
     task = await task_store.create(req.video_url, custom_tags=req.tags)
 
     # 后台执行分析 —— 持有引用防 GC，完成后自动移除
-    bg = asyncio.create_task(_run_analysis(task.task_id, req.video_url, custom_tags=req.tags))
+    bg = asyncio.create_task(_run_analysis(task.task_id, req.video_url, custom_tags=req.tags, custom_prompt=req.prompt))
     _background_tasks.add(bg)
     bg.add_done_callback(_background_tasks.discard)
 
@@ -253,13 +254,13 @@ async def put_tags(new_tags: dict):
 
 # ─── 内部实现 ──────────────────────────────────────────
 
-async def _run_analysis(task_id: str, video_url: str, *, custom_tags: dict | None = None) -> None:
+async def _run_analysis(task_id: str, video_url: str, *, custom_tags: dict | None = None, custom_prompt: str | None = None) -> None:
     """后台执行分析任务。"""
     step_start(task_id, "异步分析")
     await task_store.set_processing(task_id)
 
     try:
-        prompt = build_tag_prompt(override_tags=custom_tags)
+        prompt = build_tag_prompt(override_tags=custom_tags, extra_prompt=custom_prompt or "")
         async with _get_semaphore():
             result_text = await llm_service.analyze(video_url, prompt)
         raw_tags = _parse_json_result(result_text)

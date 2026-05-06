@@ -2,9 +2,10 @@
 
 This plugin does not add any workflow nodes.
 
-It only registers a backend route:
+It only registers backend routes:
 
 - `POST /delete`
+- `POST /delete-directory`
 
 Request body:
 
@@ -22,6 +23,17 @@ Supported `type` values:
 - `output`
 - `temp`
 
+Directory cleanup:
+
+```json
+{
+  "subfolder": "seethrough/requests/request-id",
+  "type": "output"
+}
+```
+
+The route deletes only `seethrough/requests/*` directories inside ComfyUI `input`, `output`, or `temp` roots and refuses the base directory itself.
+
 Install:
 
 1. Copy this whole folder into `ComfyUI/custom_nodes/`
@@ -32,4 +44,8 @@ Install:
 curl -X POST http://127.0.0.1:8188/delete \
   -H "Content-Type: application/json" \
   -d "{\"filename\":\"example.png\",\"subfolder\":\"\",\"type\":\"output\"}"
+
+curl -X POST http://127.0.0.1:8188/delete-directory \
+  -H "Content-Type: application/json" \
+  -d "{\"subfolder\":\"seethrough/requests/example\",\"type\":\"output\"}"
 ```

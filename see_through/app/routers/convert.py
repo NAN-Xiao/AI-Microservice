@@ -6,12 +6,13 @@ import uuid
 from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, File, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
 from fastapi.responses import Response
 
 from app.config import settings
 from app.models.response import ApiResult
 from app.services.comfy_client import ComfyError, convert_image_to_psd
+from app.services.result_store import cleanup_by_token
 from app.utils.logger import log_request
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ async def _comfy_slot(request_id: str, filename: str):
 @router.post("/convert")
 async def convert_to_psd(
     request: Request,
+    background_tasks: BackgroundTasks,
     image: UploadFile = File(..., description="输入图片（png/jpg/webp）"),
 ):
     request_id = getattr(request.state, "request_id", uuid.uuid4().hex[:12])
@@ -144,6 +146,8 @@ async def convert_to_psd(
         "output_name": safe_name,
         "output_size_bytes": len(psd_bytes),
     })
+
+    background_tasks.add_task(cleanup_by_token, cleanup_token)
 
     return Response(
         content=psd_bytes,
