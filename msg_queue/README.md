@@ -5,6 +5,10 @@
 - 后台消费者线程消费（`worker-count=1` 时顺序消费，`>1` 时并发消费）
 - `GET /health` 健康检查
 - `GET /queue/stats` 查看队列和消费统计
+- `POST /api/see-through/convert` 接收图片，作为队列任务串行调用 `see_through` 服务并返回 PSD
+- `POST /api/see-through/cleanup` 代理清理 `see_through` 临时文件
+- `GET /api/see-through/health` 代理 `see_through` 健康检查
+- `POST /api/see-through/cancel` 取消仍在 `msg_queue` 中排队的 SeeThrough 任务
 - 任务过滤规则（按 URL 路径）：
   - `/messages/query/**` 查询任务不入队，直接处理
   - 只有 `queue.long-task-path-prefixes` 白名单路径入队
@@ -87,6 +91,44 @@ curl "http://127.0.0.1:8090/messages/report/generate?topic=report.generate&repor
 - `queue.worker-count`：消费者线程数（默认 `1`，即消费完一个再消费下一个）
 - `queue.worker-delay-ms`：每条消息模拟处理延迟（毫秒，默认 `0`）
 - `queue.long-task-path-prefixes`：允许入队的耗时任务 URL 路径前缀白名单（相对 `/messages`）
+- `see-through.base-url`：后端 Gateway 地址，默认 `http://127.0.0.1:8081`，实际调用会拼接 `/api/see-through/...`
+- `see-through.auth-token`：调用后端 `see_through` 时使用的 Bearer token；若客户端请求带 `Authorization`，优先透传客户端 token
+- `see-through.max-size`：SeeThrough 转换等待队列容量，默认 `200`
+- `see-through.request-timeout-seconds`：同步等待 SeeThrough 转换结果的超时时间，默认 `600`
+
+## SeeThrough 串行任务
+
+`msg_queue` 会把 `/api/see-through/convert` 的 multipart 图片请求封装为队列任务，由单 worker 串行通过 Gateway 调用后端 `see_through` 的 `/api/see-through/convert`。调用方仍同步拿到 PSD 文件；队列满时返回 `503` 和 `TASK_BUSY`。
+
+```bash
+curl -X POST "http://127.0.0.1:8090/api/see-through/convert" \
+  -F "image=@input.png" \
+  -o output.psd
+```
+
+查看 SeeThrough 队列状态：
+
+```bash
+curl "http://127.0.0.1:8090/api/see-through/queue/stats"
+```
+
+取消排队中的 SeeThrough 任务：
+
+```bash
+curl -X POST "http://127.0.0.1:8090/api/see-through/cancel" \
+  -H "Content-Type: application/json" \
+  -d "{\"taskId\":\"your-client-generated-task-id\"}"
+```
+
+前端可以在上传时把自生成的 `taskId` 作为 query 参数传给转换接口：
+
+```bash
+curl -X POST "http://127.0.0.1:8090/api/see-through/convert?taskId=your-client-generated-task-id" \
+  -F "image=@input.png" \
+  -o output.psd
+```
+
+页面关闭或请求断开时，`msg_queue` 会尝试取消任务。仍在队列里等待的任务会被移除；已经开始调用 `see_through` 的任务只能标记为取消并丢弃结果，不能保证中断下游已经开始的 ComfyUI 转换。
 
 ## 日志配置
 

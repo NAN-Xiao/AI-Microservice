@@ -189,6 +189,8 @@
     let phase = "upload";
     let downloadState = null;
     let healthTimer = null;
+    let activeTaskId = "";
+    let activeAbortController = null;
     const canUseNativeSavePicker = Boolean(
       window.showSaveFilePicker &&
       window.isSecureContext &&
@@ -209,6 +211,14 @@
       serviceTip.className = `service-tip ${kind}`.trim();
     }
 
+    function parseErrorMessage(status, text) {
+      const body = text || "";
+      if (status === 503 && (body.includes("TASK_BUSY") || body.includes("任务繁忙"))) {
+        return "队列已满，请稍后再尝试";
+      }
+      return `处理失败：HTTP ${status} ${body}`;
+    }
+
     function resetDownloadState() {
       downloadState = null;
       phase = "upload";
@@ -220,6 +230,8 @@
     function clearDownloadStateOnly() {
       downloadState = null;
       phase = "upload";
+      activeTaskId = "";
+      activeAbortController = null;
       submitBtn.disabled = false;
       submitBtn.textContent = "上传图片";
     }
@@ -254,6 +266,43 @@
         });
       } catch (_) {
       }
+    }
+
+    function newTaskId() {
+      if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+
+    function cancelActiveTask() {
+      if (!activeTaskId) {
+        return;
+      }
+
+      const payload = JSON.stringify({ taskId: activeTaskId });
+      activeTaskId = "";
+      if (activeAbortController) {
+        activeAbortController.abort();
+        activeAbortController = null;
+      }
+
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(
+          "/api/see-through/cancel",
+          new Blob([payload], { type: "application/json" })
+        );
+        return;
+      }
+
+      fetch("/api/see-through/cancel", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: payload,
+        keepalive: true
+      }).catch(() => {});
     }
 
     async function saveBlobToDisk(blob, filename) {
@@ -356,20 +405,25 @@
 
       const formData = new FormData();
       formData.append("image", file);
+      activeTaskId = newTaskId();
+      activeAbortController = new AbortController();
 
       setProcessingState();
       setStatus("图片已上传，正在处理中。这个过程可能持续几分钟...", "info");
 
       try {
-        const res = await fetch("/api/see-through/convert", {
+        const res = await fetch(`/api/see-through/convert?taskId=${encodeURIComponent(activeTaskId)}`, {
           method: "POST",
-          body: formData
+          body: formData,
+          signal: activeAbortController.signal
         });
+        activeTaskId = "";
+        activeAbortController = null;
 
         const contentType = res.headers.get("content-type") || "";
         if (!res.ok || !contentType.includes("application/octet-stream")) {
           const text = await res.text();
-          setStatus(`处理失败：HTTP ${res.status} ${text}`, "error");
+          setStatus(parseErrorMessage(res.status, text), "error");
           resetDownloadState();
           return;
         }
@@ -387,7 +441,13 @@
         };
         setReadyToDownloadState(filename);
       } catch (error) {
-        setStatus(`处理失败：${error.message}`, "error");
+        if (error && error.name === "AbortError") {
+          setStatus("任务已取消。", "error");
+        } else {
+          setStatus(`处理失败：${error.message}`, "error");
+        }
+        activeTaskId = "";
+        activeAbortController = null;
         resetDownloadState();
       }
     });
@@ -399,6 +459,8 @@
 
     checkHealth();
     healthTimer = window.setInterval(checkHealth, 5000);
+    window.addEventListener("pagehide", cancelActiveTask);
+    window.addEventListener("beforeunload", cancelActiveTask);
   </script>
 </body>
 </html>

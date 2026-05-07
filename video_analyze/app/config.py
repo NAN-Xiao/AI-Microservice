@@ -111,6 +111,8 @@ def _build_settings() -> "Settings":
     timeout = _to_int(_llm_get(c, "timeout_seconds", 300), 300)
     service_name = str(_service_get(c, "name", "video-analyze"))
     llm_concurrency = _to_int(_llm_get(c, "concurrency", 5), 5)
+    max_retries = _to_int(_llm_get(c, "max_retries", 2), 2)
+    retry_backoff = _to_int(_llm_get(c, "retry_backoff", 2), 2)
     log_to_file = _to_bool(_server_get(c, "log_to_file", True), True)
     auth_tokens = str(_auth_get(c, "tokens", ""))
 
@@ -124,6 +126,8 @@ def _build_settings() -> "Settings":
         timeout=timeout,
         service_name=service_name,
         llm_concurrency=llm_concurrency,
+        max_retries=max_retries,
+        retry_backoff=retry_backoff,
         log_to_file=log_to_file,
         auth_tokens=auth_tokens,
         http_client=None,
@@ -149,6 +153,8 @@ class Settings:
     timeout: int
     service_name: str
     llm_concurrency: int
+    max_retries: int
+    retry_backoff: int
     log_to_file: bool
     auth_tokens: str
     http_client: Optional[httpx.AsyncClient]

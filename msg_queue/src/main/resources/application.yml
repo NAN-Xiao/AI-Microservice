@@ -1,5 +1,26 @@
 server:
   port: 8090
+  additional-ports:
+    - 9005
+    - 9006
+
+spring:
+  application:
+    name: ${NACOS_SERVICE_NAME:msg-queue-service}
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 200MB
+  cloud:
+    nacos:
+      discovery:
+        enabled: ${NACOS_ENABLED:true}
+        register-additional-ports: ${NACOS_REGISTER_ADDITIONAL_PORTS:false}
+        server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+        namespace: ${NACOS_NAMESPACE:}
+        group: ${NACOS_GROUP:DEFAULT_GROUP}
+        username: ${NACOS_USERNAME:nacos}
+        password: ${NACOS_PASSWORD:nacos}
 
 queue:
   max-size: 200
@@ -9,6 +30,18 @@ queue:
     - /report/generate
     - /order/settle
 
+see-through:
+  base-url: ${SEE_THROUGH_BASE_URL:http://127.0.0.1:9004}
+  auth-token: ${SEE_THROUGH_AUTH_TOKEN:}
+  max-size: ${SEE_THROUGH_QUEUE_MAX_SIZE:200}
+  request-timeout-seconds: ${SEE_THROUGH_REQUEST_TIMEOUT_SECONDS:600}
+
 logging:
   level:
     root: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
