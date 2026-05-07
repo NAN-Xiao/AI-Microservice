@@ -18,6 +18,7 @@ if /I "%~1"=="start" goto start
 if /I "%~1"=="stop" goto stop
 if /I "%~1"=="restart" goto restart
 if /I "%~1"=="status" goto status
+if "%~1"=="" goto restart
 goto usage
 
 :init
