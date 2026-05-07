@@ -1,15 +1,17 @@
 """
-Video Analyze API 测试脚本
-测试内容：
-  仅执行异步任务并发测试：
-  POST /api/video-analyze/tasks → GET /api/video-analyze/tasks/{task_id}
+Video Analyze Clip API 测试脚本
+
+测试接口：
+  POST /api/video-analyze/clip
+  POST /api/video-analyze/clip/tasks
+  GET  /api/video-analyze/clip/tasks/{task_id}
 """
 
 import io
 import json
 import sys
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any
 
 # 修复 Windows GBK 控制台编码问题
 if sys.stdout.encoding != "utf-8":
@@ -20,305 +22,238 @@ import requests
 
 BASE_URL = "http://10.1.6.76:9001"
 VIDEO_URL = "https://vidio-1300638412.cos.ap-beijing.myqcloud.com/00cb5464426850d5_17.mp4"
+CLIP_PROMPT = "切片尽量控制在 3 到 8 秒"
 
-# 超时（秒）：同步分析可能耗时较长，LLM 处理视频需要时间
+# 超时（秒）：LLM 处理视频可能耗时较长
 SYNC_TIMEOUT = 600
+SUBMIT_TIMEOUT = 30
+POLL_TIMEOUT = 10
 POLL_INTERVAL = 5
 POLL_MAX_WAIT = 600
-ASYNC_TASK_COUNT = 15
+ASYNC_TASK_COUNT = 3
 
 
-def separator(title: str):
-    print(f"\n{'='*60}")
+def separator(title: str) -> None:
+    print(f"\n{'=' * 60}")
     print(f"  {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
-def pretty(data):
+def pretty(data: Any) -> None:
     print(json.dumps(data, indent=2, ensure_ascii=False))
 
 
-# ─── 1. 健康检查 ────────────────────────────────────────
-def test_health():
-    separator("1. 健康检查  GET /api/video-analyze/health")
-    url = f"{BASE_URL}/api/video-analyze/health"
-    try:
-        resp = requests.get(url, timeout=10)
-        print(f"Status: {resp.status_code}")
-        pretty(resp.json())
-        assert resp.status_code == 200, f"健康检查失败: HTTP {resp.status_code}"
-        print("✅ 健康检查通过")
-        return True
-    except Exception as e:
-        print(f"❌ 健康检查失败: {e}")
-        return False
-
-
-# ─── 2. 同步分析 ────────────────────────────────────────
-def test_sync_analyze():
-    separator("2. 同步分析  POST /api/video-analyze/analyze")
-    url = f"{BASE_URL}/api/video-analyze/analyze"
-    payload = {
+def clip_payload() -> dict[str, str]:
+    return {
         "video_url": VIDEO_URL,
-        # tags 不传，使用服务端默认标签体系
+        "prompt": CLIP_PROMPT,
     }
+
+
+def validate_clip_result(result: Any) -> tuple[bool, str]:
+    if not isinstance(result, dict):
+        return False, f"result 应为 object，实际为 {type(result).__name__}"
+
+    instructions = result.get("instructions")
+    if not isinstance(instructions, list) or not instructions:
+        return False, "result.instructions 应为非空数组"
+
+    emotion = result.get("emotion")
+    if not isinstance(emotion, str) or not emotion.strip():
+        return False, "result.emotion 应为非空字符串"
+
+    for idx, item in enumerate(instructions):
+        if not isinstance(item, dict):
+            return False, f"instructions[{idx}] 应为 object"
+        for field in ("start", "end", "time_str", "content"):
+            if field not in item:
+                return False, f"instructions[{idx}] 缺少字段 {field}"
+        if not isinstance(item["start"], int) or not isinstance(item["end"], int):
+            return False, f"instructions[{idx}] start/end 应为整数"
+        if item["end"] <= item["start"]:
+            return False, f"instructions[{idx}] 时间范围非法"
+        if not str(item["time_str"]).strip() or not str(item["content"]).strip():
+            return False, f"instructions[{idx}] time_str/content 不能为空"
+
+    return True, "ok"
+
+
+def test_sync_clip() -> bool:
+    separator("1. 同步切片分析  POST /api/video-analyze/clip")
+    url = f"{BASE_URL}/api/video-analyze/clip"
+    payload = clip_payload()
+
     print(f"请求 URL:  {url}")
     print(f"视频地址:  {VIDEO_URL}")
+    print(f"提示词:    {CLIP_PROMPT}")
     print(f"超时设置:  {SYNC_TIMEOUT}s")
-    print("请求中（LLM 分析视频可能需要数分钟）...")
+    print("请求中（LLM 切片分析可能需要数分钟）...")
 
     start = time.time()
     try:
         resp = requests.post(url, json=payload, timeout=SYNC_TIMEOUT)
         elapsed = time.time() - start
         print(f"\nStatus: {resp.status_code}  耗时: {elapsed:.1f}s")
+
         data = resp.json()
         pretty(data)
 
-        if data.get("code") == 200:
-            print("✅ 同步分析成功")
-            return True
-        else:
-            print(f"⚠️  返回业务错误码: {data.get('code')}")
+        if resp.status_code != 200 or data.get("code") != 200:
+            print(f"❌ 同步切片接口失败: http={resp.status_code} code={data.get('code')}")
             return False
+
+        ok, message = validate_clip_result(data.get("data"))
+        if not ok:
+            print(f"❌ 同步切片返回结构错误: {message}")
+            return False
+
+        print("✅ 同步切片分析成功")
+        return True
+
     except requests.exceptions.Timeout:
         elapsed = time.time() - start
-        print(f"❌ 同步分析超时 ({elapsed:.1f}s)")
+        print(f"❌ 同步切片分析超时 ({elapsed:.1f}s)")
         return False
     except Exception as e:
-        print(f"❌ 同步分析异常: {e}")
+        print(f"❌ 同步切片分析异常: {e}")
         return False
 
 
-# ─── 3. 异步任务提交 + 轮询（10 次） ─────────────────────
-def _submit_async_task(submit_url: str, payload: dict, idx: int) -> dict:
-    """提交单个异步任务，返回统一结果结构。"""
-    try:
-        resp = requests.post(submit_url, json=payload, timeout=30)
-        data = resp.json()
-        if resp.status_code != 200 or data.get("code") != 200:
-            return {
-                "idx": idx,
-                "ok": False,
-                "http_status": resp.status_code,
-                "code": data.get("code"),
-                "message": data.get("message"),
-                "task_id": None,
-                "response_json": data,
-            }
-        return {
-            "idx": idx,
-            "ok": True,
-            "http_status": resp.status_code,
-            "code": data.get("code"),
-            "message": data.get("message"),
-            "task_id": data["data"]["task_id"],
-            "response_json": data,
-        }
-    except Exception as e:
-        return {
-            "idx": idx,
-            "ok": False,
-            "http_status": None,
-            "code": None,
-            "message": str(e),
-            "task_id": None,
-            "response_json": None,
-        }
+def test_submit_clip_tasks() -> list[str]:
+    separator(f"2. 提交切片任务  POST /api/video-analyze/clip/tasks × {ASYNC_TASK_COUNT}")
+    url = f"{BASE_URL}/api/video-analyze/clip/tasks"
+    payload = clip_payload()
+    task_ids: list[str] = []
+
+    print(f"请求 URL: {url}")
+    for idx in range(1, ASYNC_TASK_COUNT + 1):
+        print(f"\n--- 提交第 {idx}/{ASYNC_TASK_COUNT} 个切片任务 ---")
+        try:
+            resp = requests.post(url, json=payload, timeout=SUBMIT_TIMEOUT)
+            print(f"Status: {resp.status_code}")
+
+            data = resp.json()
+            pretty(data)
+
+            if resp.status_code != 200 or data.get("code") != 200:
+                print(f"❌ 提交切片任务失败: http={resp.status_code} code={data.get('code')}")
+                return task_ids
+
+            task_id = ((data.get("data") or {}).get("task_id") or "").strip()
+            status = (data.get("data") or {}).get("status")
+            if not task_id:
+                print("❌ 提交切片任务返回缺少 task_id")
+                return task_ids
+            if status not in ("pending", "processing"):
+                print(f"❌ 提交切片任务返回状态异常: {status}")
+                return task_ids
+
+            task_ids.append(task_id)
+            print(f"✅ 切片任务提交成功: task_id={task_id}")
+
+        except Exception as e:
+            print(f"❌ 提交切片任务异常: {e}")
+            return task_ids
+
+    return task_ids
 
 
-def test_async_task():
-    separator(f"3. 异步任务并发测试  POST /api/video-analyze/tasks × {ASYNC_TASK_COUNT}")
-    submit_url = f"{BASE_URL}/api/video-analyze/tasks"
-    payload = {
-        "video_url": VIDEO_URL,
-        # tags 不传，使用服务端默认标签体系
-    }
-    print(f"并发提交任务数: {ASYNC_TASK_COUNT}")
-    try:
-        submit_results: list[dict] = []
-        submit_start = time.time()
-        with ThreadPoolExecutor(max_workers=ASYNC_TASK_COUNT) as ex:
-            futures = [
-                ex.submit(_submit_async_task, submit_url, payload, i + 1)
-                for i in range(ASYNC_TASK_COUNT)
-            ]
-            for f in as_completed(futures):
-                submit_results.append(f.result())
+def test_query_clip_tasks(task_ids: list[str]) -> bool:
+    separator("3. 查询切片任务  GET /api/video-analyze/clip/tasks/{task_id}")
+    if not task_ids:
+        print("❌ 没有可查询的 task_id")
+        return False
 
-        submit_elapsed = time.time() - submit_start
-        submit_results.sort(key=lambda x: x["idx"])
+    print(f"任务数量: {len(task_ids)}")
+    print(f"轮询间隔: {POLL_INTERVAL}s，最多等待: {POLL_MAX_WAIT}s")
 
-        print(f"提交完成，耗时: {submit_elapsed:.2f}s")
-        for r in submit_results:
-            icon = "✅" if r["ok"] else "❌"
-            print(
-                f"  {icon} #{r['idx']:02d} "
-                f"http={r['http_status']} code={r['code']} "
-                f"task_id={r['task_id']}"
-            )
-            print("    提交接口完整返回参数:")
-            pretty(r.get("response_json"))
+    task_status: dict[str, str] = {task_id: "pending" for task_id in task_ids}
+    start = time.time()
+    while time.time() - start < POLL_MAX_WAIT:
+        elapsed = time.time() - start
+        completed = 0
+        failed = 0
 
-        failed_submit = [r for r in submit_results if not r["ok"]]
-        if failed_submit:
-            print(f"\n❌ 存在提交失败任务: {len(failed_submit)}/{ASYNC_TASK_COUNT}")
-            for r in failed_submit:
-                print(f"  - #{r['idx']:02d}: {r['message']}")
-            return False
-
-        task_ids = [r["task_id"] for r in submit_results if r["task_id"]]
-        print(f"\n开始轮询 {len(task_ids)} 个任务（间隔 {POLL_INTERVAL}s，最多等待 {POLL_MAX_WAIT}s）...\n")
-
-        task_status: dict[str, str] = {tid: "pending" for tid in task_ids}
-        task_result: dict[str, dict] = {}
-        start = time.time()
-
-        while time.time() - start < POLL_MAX_WAIT:
-            cycle_start = time.time()
-            elapsed = time.time() - start
-            done = 0
-            failed = 0
-
-            for tid in task_ids:
-                if task_status.get(tid) in ("completed", "failed"):
-                    if task_status[tid] == "completed":
-                        done += 1
-                    else:
-                        failed += 1
-                    continue
-
-                poll_url = f"{BASE_URL}/api/video-analyze/tasks/{tid}"
-                r = requests.get(poll_url, timeout=10)
-                resp_json = r.json()
-                task_data = resp_json.get("data", {})
-                status = task_data.get("status", "unknown")
-                task_status[tid] = status
-
-                # 每次轮询都输出接口返回参数，便于排查任务状态变化
-                print(f"    轮询接口完整返回参数（task_id={tid}）:")
-                pretty(resp_json)
-
-                if status in ("completed", "failed"):
-                    task_result[tid] = task_data
-                if status == "completed":
-                    done += 1
-                elif status == "failed":
+        for task_id in task_ids:
+            if task_status.get(task_id) in ("completed", "failed"):
+                if task_status[task_id] == "completed":
+                    completed += 1
+                else:
                     failed += 1
+                continue
 
-            print(
-                f"  [{elapsed:5.1f}s] completed={done}/{len(task_ids)} "
-                f"failed={failed}/{len(task_ids)}"
-            )
+            url = f"{BASE_URL}/api/video-analyze/clip/tasks/{task_id}"
+            try:
+                resp = requests.get(url, timeout=POLL_TIMEOUT)
+                data = resp.json()
+                task_data = data.get("data") or {}
+                status = task_data.get("status")
+                task_status[task_id] = status
 
-            if done + failed == len(task_ids):
-                print("\n全部任务进入最终态。")
-                print(f"  完成: {done}")
-                print(f"  失败: {failed}")
+                print(f"\n[{elapsed:5.1f}s] task_id={task_id}  http={resp.status_code}  task_status={status}")
+                pretty(data)
 
-                if failed > 0:
-                    print("❌ 异步任务并发测试失败（存在 failed）")
-                    for tid, data in task_result.items():
-                        if data.get("status") == "failed":
-                            print(f"  - {tid}: {data.get('error')}")
+                if resp.status_code != 200 or data.get("code") != 200:
+                    print(f"❌ 查询切片任务失败: http={resp.status_code} code={data.get('code')}")
                     return False
 
-                # 打印一个样例结果，避免日志过长
-                first_tid = task_ids[0]
-                sample = task_result.get(first_tid, {})
-                print(f"\n样例任务结果（task_id={first_tid}）:")
-                pretty(sample.get("result", {}))
-                print("✅ 异步任务并发测试成功")
-                return True
+                if task_data.get("task_type") != "clip":
+                    print(f"❌ task_type 异常: {task_data.get('task_type')}")
+                    return False
 
-            # 严格按 POLL_INTERVAL 节奏轮询：本轮耗时会被扣除
-            spent = time.time() - cycle_start
-            sleep_for = max(0.0, POLL_INTERVAL - spent)
-            time.sleep(sleep_for)
+                if status == "completed":
+                    ok, message = validate_clip_result(task_data.get("result"))
+                    if not ok:
+                        print(f"❌ 切片任务结果结构错误: {message}")
+                        return False
+                    completed += 1
+                elif status == "failed":
+                    failed += 1
+                    print(f"❌ 切片任务失败: {task_data.get('error')}")
+                elif status not in ("pending", "processing"):
+                    print(f"❌ 未知任务状态: {status}")
+                    return False
 
-        unfinished = [tid for tid in task_ids if task_status.get(tid) not in ("completed", "failed")]
-        print(f"❌ 轮询超时（等待 {POLL_MAX_WAIT}s），未完成任务数: {len(unfinished)}")
-        for tid in unfinished:
-            print(f"  - {tid}: {task_status.get(tid)}")
-        return False
+            except requests.exceptions.Timeout:
+                print(f"⚠️  查询超时，继续轮询: task_id={task_id}")
+            except Exception as e:
+                print(f"❌ 查询切片任务异常: {e}")
+                return False
 
-    except Exception as e:
-        print(f"❌ 异步任务异常: {e}")
-        return False
+        print(f"\n[{elapsed:5.1f}s] completed={completed}/{len(task_ids)} failed={failed}/{len(task_ids)}")
+        if completed + failed == len(task_ids):
+            if failed:
+                print("❌ 切片任务查询失败，存在 failed 任务")
+                return False
+            print("✅ 切片任务查询成功，全部任务已完成")
+            return True
 
+        time.sleep(POLL_INTERVAL)
 
-# ─── 4. 参数校验 ────────────────────────────────────────
-def test_validation():
-    separator("4. 参数校验")
-    url = f"{BASE_URL}/api/video-analyze/analyze"
-    results = []
-
-    # 4a. 空 URL
-    print("\n--- 4a. 空 video_url ---")
-    try:
-        resp = requests.post(url, json={"video_url": ""}, timeout=10)
-        print(f"Status: {resp.status_code}")
-        pretty(resp.json())
-        if resp.status_code == 422:
-            print("✅ 空 URL 校验通过（返回 422）")
-            results.append(True)
-        else:
-            print(f"⚠️  预期 422, 实际 {resp.status_code}")
-            results.append(False)
-    except Exception as e:
-        print(f"❌ 异常: {e}")
-        results.append(False)
-
-    # 4b. 非 http(s) URL
-    print("\n--- 4b. 非 http(s) URL ---")
-    try:
-        resp = requests.post(url, json={"video_url": "ftp://example.com/video.mp4"}, timeout=10)
-        print(f"Status: {resp.status_code}")
-        pretty(resp.json())
-        if resp.status_code == 422:
-            print("✅ 非 http(s) URL 校验通过（返回 422）")
-            results.append(True)
-        else:
-            print(f"⚠️  预期 422, 实际 {resp.status_code}")
-            results.append(False)
-    except Exception as e:
-        print(f"❌ 异常: {e}")
-        results.append(False)
-
-    # 4c. 缺少 video_url 字段
-    print("\n--- 4c. 缺少 video_url ---")
-    try:
-        resp = requests.post(url, json={}, timeout=10)
-        print(f"Status: {resp.status_code}")
-        pretty(resp.json())
-        if resp.status_code == 422:
-            print("✅ 缺少字段校验通过（返回 422）")
-            results.append(True)
-        else:
-            print(f"⚠️  预期 422, 实际 {resp.status_code}")
-            results.append(False)
-    except Exception as e:
-        print(f"❌ 异常: {e}")
-        results.append(False)
-
-    return all(results)
+    unfinished = [task_id for task_id, status in task_status.items() if status not in ("completed", "failed")]
+    print(f"❌ 轮询超时（等待 {POLL_MAX_WAIT}s），未完成任务数: {len(unfinished)}")
+    for task_id in unfinished:
+        print(f"  - {task_id}: {task_status.get(task_id)}")
+    return False
 
 
-# ─── 运行 ──────────────────────────────────────────────
-def main():
+def main() -> None:
     print("=" * 60)
-    print("  Video Analyze API 测试")
+    print("  Video Analyze Clip API 测试")
     print(f"  Base URL: {BASE_URL}")
     print(f"  Video:    {VIDEO_URL}")
-    print(f"  Async:    {ASYNC_TASK_COUNT} 并发，每 {POLL_INTERVAL}s 轮询")
+    print(f"  Prompt:   {CLIP_PROMPT}")
+    print(f"  Async:    {ASYNC_TASK_COUNT} 个切片任务，每 {POLL_INTERVAL}s 轮询")
     print("=" * 60)
 
-    results = {}
+    results: dict[str, bool] = {}
 
-    # 只执行异步任务并发测试
-    results["异步任务"] = test_async_task()
+    results["同步切片分析"] = test_sync_clip()
 
-    # ─── 汇总 ──────────────────────────────────────────
+    task_ids = test_submit_clip_tasks()
+    results["提交切片任务"] = len(task_ids) == ASYNC_TASK_COUNT
+    results["查询切片任务"] = test_query_clip_tasks(task_ids) if task_ids else False
+
     separator("测试结果汇总")
     for name, passed in results.items():
         icon = "✅" if passed else "❌"
