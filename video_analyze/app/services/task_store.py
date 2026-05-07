@@ -34,10 +34,12 @@ class Task:
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
     custom_tags: Optional[dict] = None
+    task_type: str = "analyze"  # "analyze" | "clip"
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
             "task_id": self.task_id,
+            "task_type": self.task_type,
             "video_url": self.video_url,
             "status": self.status.value,
             "created_at": self.created_at,
@@ -80,16 +82,16 @@ class TaskStore:
             self._cleanup_handle.cancel()
             self._cleanup_handle = None
 
-    async def create(self, video_url: str, *, custom_tags: dict | None = None) -> Task:
+    async def create(self, video_url: str, *, custom_tags: dict | None = None, task_type: str = "analyze") -> Task:
         task_id = uuid.uuid4().hex
-        task = Task(task_id=task_id, video_url=video_url, custom_tags=custom_tags)
+        task = Task(task_id=task_id, video_url=video_url, custom_tags=custom_tags, task_type=task_type)
         async with self._lock:
             self._cleanup_expired()
             # 超过上限时驱逐最旧的已完成/失败任务
             if len(self._tasks) >= self._max_tasks:
                 self._evict_oldest()
             self._tasks[task_id] = task
-        logger.info("任务已创建: %s -> %s", task_id[:8], video_url)
+        logger.info("任务已创建: %s [%s] -> %s", task_id[:8], task_type, video_url)
         return task
 
     async def get(self, task_id: str) -> Optional[Task]:

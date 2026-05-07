@@ -4,7 +4,6 @@
 """
 
 import asyncio
-import json
 import logging
 import uuid
 from urllib.parse import urlparse
@@ -18,6 +17,7 @@ from app.models.response import ApiResult
 from app.services import llm_service
 from app.services.tag_schema import build_tag_prompt, sanitize_tags, get_tag_schema, update_tag_schema, validate_tag_schema
 from app.services.task_store import task_store, TaskStatus
+from app.utils.llm_utils import get_llm_semaphore, parse_json_result
 from app.utils.logger import log_request, step_start, step_done, step_fail
 
 logger = logging.getLogger(__name__)
@@ -26,17 +26,6 @@ router = APIRouter(prefix="/api/video-analyze", tags=["视频分析"])
 
 # 持有后台任务引用，防止被 GC 回收
 _background_tasks: set[asyncio.Task] = set()
-
-# LLM 并发信号量：限制同时对 LLM 的请求数，防止突发流量击垮上游
-_llm_semaphore: asyncio.Semaphore | None = None
-
-
-def _get_semaphore() -> asyncio.Semaphore:
-    """懒初始化信号量（必须在事件循环内调用）。"""
-    global _llm_semaphore
-    if _llm_semaphore is None:
-        _llm_semaphore = asyncio.Semaphore(settings.llm_concurrency)
-    return _llm_semaphore
 
 
 # ─── 请求模型 ──────────────────────────────────────────
@@ -85,9 +74,9 @@ async def analyze(req: AnalyzeRequest):
     step_start(request_id, "同步分析")
     try:
         prompt = build_tag_prompt(override_tags=req.tags, extra_prompt=req.prompt or "")
-        async with _get_semaphore():
+        async with get_llm_semaphore():
             result_text = await llm_service.analyze(req.video_url, prompt)
-        raw_tags = _parse_json_result(result_text)
+        raw_tags = parse_json_result(result_text)
 
         if "raw_content" in raw_tags:
             step_done(request_id, "同步分析(raw)")
@@ -202,7 +191,7 @@ async def get_task(task_id: str):
     - failed: 失败（error 字段包含原因）
     """
     task = await task_store.get(task_id)
-    if task is None:
+    if task is None or task.task_type != "analyze":
         return ApiResult.error(404, f"任务不存在或已过期: {task_id}")
     return ApiResult.ok(task.to_dict())
 
@@ -214,8 +203,10 @@ async def list_tasks(
     status: str = Query(default=None, description="按状态筛选: pending/processing/completed/failed"),
     limit: int = Query(default=50, ge=1, le=200, description="返回数量上限"),
 ):
-    """列出所有任务（支持按状态筛选）。"""
+    """列出所有标签分析任务（支持按状态筛选）。"""
     all_tasks = await task_store.list_all()
+    # 只保留 analyze 类型（排除 clip）
+    all_tasks = [t for t in all_tasks if t.get("task_type") == "analyze"]
     if status:
         all_tasks = [t for t in all_tasks if t["status"] == status]
     # 按创建时间倒序
@@ -261,9 +252,9 @@ async def _run_analysis(task_id: str, video_url: str, *, custom_tags: dict | Non
 
     try:
         prompt = build_tag_prompt(override_tags=custom_tags, extra_prompt=custom_prompt or "")
-        async with _get_semaphore():
+        async with get_llm_semaphore():
             result_text = await llm_service.analyze(video_url, prompt)
-        raw_tags = _parse_json_result(result_text)
+        raw_tags = parse_json_result(result_text)
 
         if "raw_content" in raw_tags:
             await task_store.set_completed(task_id, raw_tags)
@@ -326,22 +317,3 @@ async def _run_analysis(task_id: str, video_url: str, *, custom_tags: dict | Non
         log_request(task_id, {
             "mode": "async", "video_url": video_url, "status": "failed", "error": msg,
         })
-
-
-def _parse_json_result(text: str) -> dict:
-    cleaned = text.strip()
-    if cleaned.startswith("```"):
-        lines = cleaned.split("\n")
-        lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        cleaned = "\n".join(lines)
-    try:
-        parsed = json.loads(cleaned)
-        if isinstance(parsed, dict):
-            return parsed
-        logger.warning("LLM 返回 JSON 但不是对象: %s", type(parsed).__name__)
-        return {"raw_content": text}
-    except json.JSONDecodeError:
-        logger.warning("LLM 返回非 JSON，原样返回")
-        return {"raw_content": text}

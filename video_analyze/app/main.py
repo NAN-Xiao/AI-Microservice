@@ -20,7 +20,7 @@ from app.middleware.auth import (
     start_nacos_token_watcher,
     stop_nacos_token_watcher,
 )
-from app.routers import analyze, health
+from app.routers import analyze, clip, health
 from app.routers.health import set_ready
 from app.services.task_store import task_store
 from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
@@ -151,4 +151,5 @@ async def request_logging_middleware(request: Request, call_next):
 
 
 app.include_router(analyze.router)
+app.include_router(clip.router)
 app.include_router(health.router)
