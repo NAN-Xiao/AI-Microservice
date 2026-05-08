@@ -1,8 +1,27 @@
-INFO:     Started server process [40756]
+INFO:     Started server process [50044]
 INFO:     Waiting for application startup.
-[2m18:14:16[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://10.1.5.194:8188
-[2m18:14:16[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
-[2m18:14:16[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
-[2m18:14:16[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+[2m10:53:50[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m10:53:50[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
+[2m10:53:50[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
+[2m10:53:50[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+INFO:     Started server process [36756]
+INFO:     Waiting for application startup.
+[2m10:58:05[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m10:58:05[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
+[2m10:58:05[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
+[2m10:58:05[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+[2m10:58:06[0m [92mINFO   [0m [96mapp.main[0m - ¡ú GET /api/see-through/health [59b868fe75bc]
+[2m10:58:06[0m [92mINFO   [0m [96mapp.main[0m - ¡û GET /api/see-through/health [59b868fe75bc] 200 (1.4ms)
+^CINFO:     Started server process [7872]
+INFO:     Waiting for application startup.
+[2m11:10:27[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m11:10:27[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
+[2m11:10:27[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
+[2m11:10:27[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+^C

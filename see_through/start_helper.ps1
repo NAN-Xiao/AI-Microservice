@@ -9,12 +9,21 @@ param(
     [string]$StartupErrLog
 )
 
-$process = Start-Process `
-    -FilePath $PythonExe `
-    -ArgumentList "run.py" `
-    -WorkingDirectory $AppHome `
-    -RedirectStandardOutput $StartupLog `
-    -RedirectStandardError $StartupErrLog `
-    -PassThru
+if ($PythonExe.ToLower().EndsWith("pythonw.exe")) {
+    $process = Start-Process `
+        -FilePath $PythonExe `
+        -ArgumentList "run.py" `
+        -WorkingDirectory $AppHome `
+        -PassThru
+}
+else {
+    $process = Start-Process `
+        -FilePath $PythonExe `
+        -ArgumentList "run.py" `
+        -WorkingDirectory $AppHome `
+        -RedirectStandardOutput $StartupLog `
+        -RedirectStandardError $StartupErrLog `
+        -PassThru
+}
 
 Write-Output $process.Id

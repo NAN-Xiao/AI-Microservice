@@ -8,9 +8,9 @@ set "PID_FILE=%APP_HOME%\%APP_NAME%.pid"
 set "LOG_DIR=%APP_HOME%\logs"
 set "STARTUP_LOG=%LOG_DIR%\startup.out"
 set "STARTUP_ERR_LOG=%LOG_DIR%\startup.err"
+set "SCRIPT_LOG=%LOG_DIR%\start.bat.log"
 set "VENV_DIR=%APP_HOME%\venv"
 set "PYTHON_EXE=%VENV_DIR%\Scripts\python.exe"
-set "START_HELPER=%APP_HOME%\start_helper.ps1"
 set "APP_PORT=9004"
 
 if /I "%~1"=="init" goto init
@@ -32,6 +32,11 @@ if not exist "%PYTHON_EXE%" (
 call "%PYTHON_EXE%" -m pip install --upgrade pip
 call "%PYTHON_EXE%" -m pip install -r "%APP_HOME%\requirements.txt"
 echo [%APP_NAME%] Initialization complete.
+exit /b 0
+
+:log
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+>> "%SCRIPT_LOG%" echo [%date% %time%] %*
 exit /b 0
 
 :checkvenv
@@ -66,8 +71,8 @@ exit /b 1
 :start
 call :resolvepid
 if defined FOUND_PID (
-    echo [%APP_NAME%] Already running, PID=%FOUND_PID%
-    exit /b 0
+    echo [%APP_NAME%] Running process found, restarting. PID=%FOUND_PID%
+    call :stop
 )
 
 call :checkvenv || exit /b 1
@@ -78,18 +83,29 @@ echo   Home: %APP_HOME%
 echo   Python: %PYTHON_EXE%
 echo   Port: %APP_PORT%
 echo   Log: %STARTUP_LOG%
+call :log START requested. Home=%APP_HOME% Python=%PYTHON_EXE% Port=%APP_PORT%
 
-set "NEW_PID="
-for /f %%I in ('powershell -NoProfile -ExecutionPolicy Bypass -File "%START_HELPER%" -PythonExe "%PYTHON_EXE%" -AppHome "%APP_HOME%" -StartupLog "%STARTUP_LOG%" -StartupErrLog "%STARTUP_ERR_LOG%"') do set "NEW_PID=%%I"
+start "" /min cmd /c "cd /d ""%APP_HOME%"" && ""%PYTHON_EXE%"" run.py >> ""%STARTUP_LOG%"" 2>> ""%STARTUP_ERR_LOG%"""
 
-timeout /t 3 /nobreak >nul
+timeout /t 10 /nobreak >nul
 call :resolvepid
 if not defined FOUND_PID (
-    echo [ERROR] Failed to start process. Check logs.
+    echo [ERROR] %APP_NAME% start failed.
+    echo   Port: %APP_PORT%
+    echo   Logs:
+    echo     %STARTUP_LOG%
+    echo     %STARTUP_ERR_LOG%
+    call :log START failed. No listening process found on port %APP_PORT%.
     exit /b 1
 )
 
-echo [%APP_NAME%] Started, PID=%FOUND_PID%
+echo [%APP_NAME%] Start succeeded.
+echo   PID: %FOUND_PID%
+echo   URL: http://127.0.0.1:%APP_PORT%/api/see-through/health
+echo   Logs:
+echo     %STARTUP_LOG%
+echo     %STARTUP_ERR_LOG%
+call :log START success. PID=%FOUND_PID% URL=http://127.0.0.1:%APP_PORT%/api/see-through/health
 exit /b 0
 
 :stop
@@ -100,6 +116,7 @@ if not defined FOUND_PID (
 )
 
 echo [%APP_NAME%] Stopping, PID=%FOUND_PID%...
+call :log STOP requested. PID=%FOUND_PID%
 taskkill /PID %FOUND_PID% >nul 2>&1
 timeout /t 2 /nobreak >nul
 tasklist /FI "PID eq %FOUND_PID%" | findstr /R /C:" %FOUND_PID% " >nul 2>&1
@@ -109,6 +126,7 @@ if not errorlevel 1 (
 )
 del "%PID_FILE%" >nul 2>&1
 echo [%APP_NAME%] Stopped.
+call :log STOP completed.
 exit /b 0
 
 :restart
