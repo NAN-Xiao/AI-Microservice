@@ -41,6 +41,7 @@ exit /b 0
 
 :checkvenv
 if exist "%PYTHON_EXE%" exit /b 0
+call :log CHECK_VENV failed. Missing %PYTHON_EXE%
 echo [ERROR] Virtual environment not found: %VENV_DIR%
 echo [TIP] Run: start.bat init
 exit /b 1
@@ -50,7 +51,11 @@ set "FOUND_PID="
 if exist "%PID_FILE%" (
     set /p FOUND_PID=<"%PID_FILE%"
     tasklist /FI "PID eq %FOUND_PID%" | findstr /R /C:" %FOUND_PID% " >nul 2>&1
-    if not errorlevel 1 exit /b 0
+    if not errorlevel 1 (
+        call :log RESOLVEPID hit pid file. PID=%FOUND_PID%
+        exit /b 0
+    )
+    call :log RESOLVEPID stale pid file removed. PID=%FOUND_PID%
     del "%PID_FILE%" >nul 2>&1
     set "FOUND_PID="
 )
@@ -61,10 +66,12 @@ for /f "tokens=5" %%I in ('netstat -ano ^| findstr ":%APP_PORT% " ^| findstr LIS
 goto unresolved
 
 :resolved
+call :log RESOLVEPID matched listening port %APP_PORT%. PID=%FOUND_PID%
 > "%PID_FILE%" echo %FOUND_PID%
 exit /b 0
 
 :unresolved
+call :log RESOLVEPID no listening process found for port %APP_PORT%
 set "FOUND_PID="
 exit /b 1
 
@@ -84,9 +91,11 @@ echo   Python: %PYTHON_EXE%
 echo   Port: %APP_PORT%
 echo   Log: %STARTUP_LOG%
 call :log START requested. Home=%APP_HOME% Python=%PYTHON_EXE% Port=%APP_PORT%
+call :log START using background command: "%PYTHON_EXE%" run.py
 
 start "" /min cmd /c "cd /d ""%APP_HOME%"" && ""%PYTHON_EXE%"" run.py >> ""%STARTUP_LOG%"" 2>> ""%STARTUP_ERR_LOG%"""
 
+call :log START waiting for port %APP_PORT% to become ready
 timeout /t 10 /nobreak >nul
 call :resolvepid
 if not defined FOUND_PID (
@@ -122,6 +131,7 @@ timeout /t 2 /nobreak >nul
 tasklist /FI "PID eq %FOUND_PID%" | findstr /R /C:" %FOUND_PID% " >nul 2>&1
 if not errorlevel 1 (
     echo [%APP_NAME%] Force killing...
+    call :log STOP force kill required. PID=%FOUND_PID%
     taskkill /F /PID %FOUND_PID% >nul 2>&1
 )
 del "%PID_FILE%" >nul 2>&1

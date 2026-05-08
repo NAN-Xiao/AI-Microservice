@@ -4,3 +4,16 @@
 [鍛ㄤ簲 2026/05/08 10:58:05.32] START failed. No listening process found on port 9004.
 [鍛ㄤ簲 2026/05/08 11:10:26.46] START requested. Home=D:\AIWork\AI-Microservice_xn\see_through Python=D:\AIWork\AI-Microservice_xn\see_through\venv\Scripts\python.exe Port=9004
 [鍛ㄤ簲 2026/05/08 11:10:26.58] START failed. No listening process found on port 9004.
+[2026/05/08 周五 11:13:14.28] START requested. Home=D:\AIWork\AI-Microservice_xn\see_through Python=D:\AIWork\AI-Microservice_xn\see_through\venv\Scripts\python.exe Port=9004
+[2026/05/08 周五 11:13:24.26] START success. PID=3228 URL=http://127.0.0.1:9004/api/see-through/health
+[鍛ㄤ簲 2026/05/08 11:19:39.89] RESOLVEPID stale pid file removed. PID=
+[鍛ㄤ簲 2026/05/08 11:19:39.96] RESOLVEPID matched listening port 9004. PID=3228
+[鍛ㄤ簲 2026/05/08 11:19:39.97] STOP requested. PID=3228
+[鍛ㄤ簲 2026/05/08 11:19:40.49] STOP force kill required. PID=3228
+[鍛ㄤ簲 2026/05/08 11:19:40.70] STOP completed.
+[鍛ㄤ簲 2026/05/08 11:19:40.85] RESOLVEPID no listening process found for port 9004
+[鍛ㄤ簲 2026/05/08 11:19:40.85] START requested. Home=D:\AIWork\AI-Microservice_xn\see_through Python=D:\AIWork\AI-Microservice_xn\see_through\venv\Scripts\python.exe Port=9004
+[鍛ㄤ簲 2026/05/08 11:19:40.85] START using background command: "D:\AIWork\AI-Microservice_xn\see_through\venv\Scripts\python.exe" run.py
+[鍛ㄤ簲 2026/05/08 11:19:40.86] START waiting for port 9004 to become ready
+[鍛ㄤ簲 2026/05/08 11:19:41.04] RESOLVEPID no listening process found for port 9004
+[鍛ㄤ簲 2026/05/08 11:19:41.04] START failed. No listening process found on port 9004.

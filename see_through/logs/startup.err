@@ -24,4 +24,19 @@ INFO:     Waiting for application startup.
 [2m11:10:27[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
-^C
+^CINFO:     Started server process [3228]
+INFO:     Waiting for application startup.
+[2m11:13:14[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m11:13:14[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
+[2m11:13:14[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
+[2m11:13:14[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+INFO:     Started server process [36804]
+INFO:     Waiting for application startup.
+[2m11:19:41[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m11:19:41[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏŞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ĞĞ£©
+[2m11:19:41[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼ş+¿ØÖÆÌ¨
+[2m11:19:41[0m [92mINFO   [0m [96mapp.main[0m - ·şÎñ¾ÍĞ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
