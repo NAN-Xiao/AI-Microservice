@@ -40,3 +40,15 @@ INFO:     Waiting for application startup.
 [2m11:19:41[0m [92mINFO   [0m [96mapp.main[0m - ·þÎñ¾ÍÐ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+[2m14:22:58[0m [92mINFO   [0m [96mapp.main[0m - ¡ú GET /api/see-through/health [2b811cfbd21e]
+[2m14:22:58[0m [92mINFO   [0m [96mapp.main[0m - ¡û GET /api/see-through/health [2b811cfbd21e] 200 (1.0ms)
+INFO:     Started server process [23744]
+INFO:     Waiting for application startup.
+[2m14:30:32[0m [92mINFO   [0m [96mapp.main[0m - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+[2m14:30:32[0m [92mINFO   [0m [96mapp.main[0m - ComfyUI ²¢·¢ÏÞÖÆ: Î´ÆôÓÃ£¨°´ÉÏÓÎÄÜÁ¦²¢·¢Ö´ÐÐ£©
+[2m14:30:32[0m [92mINFO   [0m [96mapp.main[0m - ÈÕÖ¾Ä£Ê½: ÎÄ¼þ+¿ØÖÆÌ¨
+[2m14:30:32[0m [92mINFO   [0m [96mapp.main[0m - ·þÎñ¾ÍÐ÷£¬¿ªÊ¼½ÓÊÜÇëÇó
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:9004 (Press CTRL+C to quit)
+[2m14:31:13[0m [92mINFO   [0m [96mapp.main[0m - ¡ú GET /api/see-through/health [e21a5e4fab0e]
+[2m14:31:13[0m [92mINFO   [0m [96mapp.main[0m - ¡û GET /api/see-through/health [e21a5e4fab0e] 200 (0.6ms)

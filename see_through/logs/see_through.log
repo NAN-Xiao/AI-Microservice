@@ -20,3 +20,11 @@
 2026-05-08 11:19:41,485 [INFO] app.main - ComfyUI 并发限制: 未启用（按上游能力并发执行）
 2026-05-08 11:19:41,485 [INFO] app.main - 日志模式: 文件+控制台
 2026-05-08 11:19:41,485 [INFO] app.main - 服务就绪，开始接受请求
+2026-05-08 14:22:58,300 [INFO] app.main - → GET /api/see-through/health [2b811cfbd21e]
+2026-05-08 14:22:58,301 [INFO] app.main - ← GET /api/see-through/health [2b811cfbd21e] 200 (1.0ms)
+2026-05-08 14:30:32,061 [INFO] app.main - See Through started | host=0.0.0.0 | port=9004 | comfyui=http://127.0.0.1:8188
+2026-05-08 14:30:32,061 [INFO] app.main - ComfyUI 并发限制: 未启用（按上游能力并发执行）
+2026-05-08 14:30:32,061 [INFO] app.main - 日志模式: 文件+控制台
+2026-05-08 14:30:32,062 [INFO] app.main - 服务就绪，开始接受请求
+2026-05-08 14:31:13,882 [INFO] app.main - → GET /api/see-through/health [e21a5e4fab0e]
+2026-05-08 14:31:13,882 [INFO] app.main - ← GET /api/see-through/health [e21a5e4fab0e] 200 (0.6ms)
