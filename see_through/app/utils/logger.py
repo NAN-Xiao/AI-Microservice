@@ -52,6 +52,10 @@ def setup_logging() -> None:
     console.setFormatter(_ColorFormatter())
     root.addHandler(console)
 
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
     if settings.log_to_file:
         _LOG_DIR.mkdir(parents=True, exist_ok=True)
         _REQUEST_LOG_DIR.mkdir(parents=True, exist_ok=True)
