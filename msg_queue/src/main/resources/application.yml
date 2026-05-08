@@ -31,7 +31,7 @@ queue:
     - /order/settle
 
 see-through:
-  base-url: ${SEE_THROUGH_BASE_URL:http://127.0.0.1:9004}
+  base-url: ${SEE_THROUGH_BASE_URL:http://10.1.5.194:9004}
   auth-token: ${SEE_THROUGH_AUTH_TOKEN:}
   max-size: ${SEE_THROUGH_QUEUE_MAX_SIZE:200}
   request-timeout-seconds: ${SEE_THROUGH_REQUEST_TIMEOUT_SECONDS:600}
