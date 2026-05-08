@@ -20,6 +20,11 @@ from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
 setup_logging()
 logger = logging.getLogger(__name__)
 
+_LOG_IGNORED_PATHS = {
+    "/api/see-through/health",
+    "/api/see-through/health/live",
+}
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -65,6 +70,11 @@ app.add_middleware(TokenAuthMiddleware)
 async def request_logging_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
     request.state.request_id = request_id
+    if request.url.path in _LOG_IGNORED_PATHS:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
     start = time.time()
     logger.info("→ %s %s [%s]", request.method, request.url.path, request_id)
     try:
