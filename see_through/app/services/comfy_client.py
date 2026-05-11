@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import io
 import json
 import logging
 import time
@@ -10,9 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 import httpx
-from PIL import Image
 from psd_tools import PSDImage
-from psd_tools.api.layers import PixelLayer
 
 from app.config import PROJECT_ROOT, settings
 from app.services.result_store import put_cleanup_data
@@ -190,7 +187,9 @@ async def convert_image_to_psd(image_bytes: bytes, filename: str, content_type: 
                 info_file = await _wait_for_layers_info_file(client, base_url, request_key, timeout=15)
         layer_info = await _download_json(client, base_url, info_file)
         _validate_layer_info_request(layer_info, request_key)
-        psd_bytes = await _build_psd_bytes(client, base_url, layer_info, history_files, info_file)
+        psd_file = _get_psd_output_file(layer_info, info_file)
+        psd_bytes = await _download_file(client, base_url, psd_file)
+        _validate_downloaded_psd(psd_bytes)
         output_name = _make_output_name(layer_info, filename)
         cleanup_targets = _collect_cleanup_targets(upload_name, info_file, layer_info, history_files)
         cleanup_token = put_cleanup_data(
@@ -326,81 +325,29 @@ def _make_output_name(layer_info: dict[str, Any], original_filename: str) -> str
     return f"{Path(original_filename).stem or 'seethrough'}.psd"
 
 
-def _resolve_download_file(
-    filename: str,
-    history_files: list[dict[str, str]],
-    fallback: dict[str, str],
-) -> dict[str, str]:
-    normalized_target = _normalize_output_file(filename)
-    for item in history_files:
-        normalized_item = _normalize_output_file(
-            item["filename"],
-            item.get("subfolder", ""),
-            item.get("type", "output"),
-        )
-        if (
-            normalized_item["filename"] == normalized_target["filename"]
-            and normalized_item["subfolder"] == normalized_target["subfolder"]
-        ):
-            return item
-    fallback_subfolder = fallback.get("subfolder", "")
-    if normalized_target["subfolder"]:
-        fallback_subfolder = normalized_target["subfolder"]
-    return _normalize_output_file(
-        normalized_target["filename"],
-        fallback_subfolder,
-        "output" if fallback.get("type") == "temp" else fallback.get("type", "output"),
-    )
+def _get_psd_output_file(layer_info: dict[str, Any], info_file: dict[str, str]) -> dict[str, str]:
+    psd_filename = str(layer_info.get("psd_filename") or "").strip()
+    if not psd_filename:
+        raise ComfyError("layers.json 缺少 psd_filename，远程 ComfyUI 节点需要更新")
+    normalized = _normalize_output_file(psd_filename)
+    fallback_subfolder = info_file.get("subfolder", "")
+    if normalized["subfolder"]:
+        fallback_subfolder = normalized["subfolder"]
+    return _normalize_output_file(normalized["filename"], fallback_subfolder, "output")
 
 
-async def _build_psd_bytes(
-    client: httpx.AsyncClient,
-    base_url: str,
-    layer_info: dict[str, Any],
-    history_files: list[dict[str, str]],
-    fallback_file: dict[str, str],
-) -> bytes:
-    width = int(layer_info.get("width") or 0)
-    height = int(layer_info.get("height") or 0)
-    layers = layer_info.get("layers")
+def _validate_downloaded_psd(psd_bytes: bytes) -> None:
+    try:
+        import io
 
-    if width <= 0 or height <= 0:
-        raise ComfyError(f"layers.json 缺少有效画布尺寸: width={width}, height={height}")
-    if not isinstance(layers, list) or not layers:
-        raise ComfyError("layers.json 未包含有效图层")
+        with io.BytesIO(psd_bytes) as fp:
+            parsed = PSDImage.open(fp)
+            actual_layers = len(parsed)
+    except Exception as exc:
+        raise ComfyError(f"ComfyUI 返回的 PSD 校验失败: {exc}") from exc
 
-    psd = PSDImage.new("RGBA", (width, height), color=0)
-
-    for entry in layers:
-        if not isinstance(entry, dict):
-            continue
-
-        png_name = entry.get("filename")
-        layer_name = str(entry.get("name") or "Layer")
-        left = int(entry.get("left") or 0)
-        top = int(entry.get("top") or 0)
-
-        if not isinstance(png_name, str) or not png_name.strip():
-            logger.warning("跳过缺少 filename 的图层: %s", layer_name)
-            continue
-
-        output_file = _resolve_download_file(png_name, history_files, fallback_file)
-        image_bytes = await _download_file(client, base_url, output_file)
-
-        try:
-            image = Image.open(io.BytesIO(image_bytes)).convert("RGBA")
-        except Exception as exc:
-            raise ComfyError(f"加载图层图片失败 {png_name}: {exc}") from exc
-
-        layer = PixelLayer.frompil(image, psd, name=layer_name, top=top, left=left)
-        psd.append(layer)
-
-    if len(psd) == 0:
-        raise ComfyError("未能从 layers.json 构建任何 PSD 图层")
-
-    output = io.BytesIO()
-    psd.save(output)
-    return output.getvalue()
+    if actual_layers <= 1:
+        raise ComfyError(f"ComfyUI 返回的 PSD 未包含有效分层: layers={actual_layers}")
 
 
 def _make_request_prefix(original_filename: str) -> str:
@@ -448,6 +395,8 @@ def _collect_cleanup_targets(
 
     add_target(uploaded_name, "input")
     add_target(info_file.get("filename"), info_file.get("type", "output"), info_file.get("subfolder", ""))
+    add_target(layer_info.get("psd_filename"), "output")
+    add_target(layer_info.get("depth_psd_filename"), "output")
 
     layers = layer_info.get("layers")
     if isinstance(layers, list):
