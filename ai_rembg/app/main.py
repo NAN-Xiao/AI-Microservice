@@ -1,0 +1,112 @@
+"""
+AI RMBG 微服务：上传图片，调用内网 ComfyUI RMBG 工作流，返回透明背景 PNG。
+"""
+
+from __future__ import annotations
+
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from app.config import settings
+from app.middleware.auth import TokenAuthMiddleware
+from app.routers import cleanup, health, remove_bg
+from app.routers.health import set_ready
+from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
+
+setup_logging()
+logger = logging.getLogger(__name__)
+
+_LOG_IGNORED_PATHS = {
+    "/api/ai-rembg/health",
+    "/api/ai-rembg/health/live",
+}
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info(
+        "AI RMBG started | host=%s | port=%s | comfyui=%s",
+        settings.host,
+        settings.port,
+        settings.comfyui_base_url,
+    )
+    if settings.comfyui_concurrency > 0:
+        logger.info("ComfyUI 并发限制: %s", settings.comfyui_concurrency)
+    else:
+        logger.info("ComfyUI 并发限制: 未启用（按上游能力并发执行）")
+    logger.info("日志模式: %s", "文件+控制台" if settings.log_to_file else "仅控制台(stdout)")
+    if not (settings.comfyui_base_url or "").strip():
+        logger.warning("ComfyUI 地址未设置：/remove-background 将调用失败，请配置 COMFYUI_BASE_URL")
+
+    start_log_cleanup()
+    set_ready(True)
+    logger.info("服务就绪，开始接受请求")
+
+    yield
+
+    logger.info("收到停机信号，开始优雅停机...")
+    set_ready(False)
+    stop_log_cleanup()
+    logger.info("AI RMBG shutdown complete")
+
+
+app = FastAPI(
+    title="AI RMBG",
+    description="上传图片，调用内网 ComfyUI RMBG 工作流并返回透明背景 PNG 文件",
+    lifespan=lifespan,
+)
+
+app.add_middleware(TokenAuthMiddleware)
+
+
+@app.middleware("http")
+async def request_logging_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
+    request.state.request_id = request_id
+    if request.url.path in _LOG_IGNORED_PATHS:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
+
+    start = time.time()
+    logger.info("→ %s %s [%s]", request.method, request.url.path, request_id)
+    try:
+        response = await call_next(request)
+        elapsed = time.time() - start
+        logger.info(
+            "← %s %s [%s] %d (%.1fms)",
+            request.method,
+            request.url.path,
+            request_id,
+            response.status_code,
+            elapsed * 1000,
+        )
+        response.headers["X-Request-ID"] = request_id
+        return response
+    except Exception:
+        elapsed = time.time() - start
+        logger.exception(
+            "← %s %s [%s] 500 (%.1fms) UNHANDLED",
+            request.method,
+            request.url.path,
+            request_id,
+            elapsed * 1000,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": 500,
+                "message": "服务内部错误",
+                "request_id": request_id,
+            },
+        )
+
+
+app.include_router(remove_bg.router)
+app.include_router(cleanup.router)
+app.include_router(health.router)
