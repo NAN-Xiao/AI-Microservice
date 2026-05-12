@@ -91,7 +91,7 @@ public class QueueRuleService {
     /**
      * 规范化路径写法。
      *
-     * <p>配置里允许写 {@code prompt} 或 {@code /prompt/}，最终都会按 {@code /prompt} 匹配。</p>
+     * <p>配置里允许省略前导斜杠或带末尾斜杠，最终按规范化路径匹配。</p>
      *
      * @param path 原始路径
      * @return 规范化后的路径

@@ -52,7 +52,7 @@ class AppTest {
     @BeforeEach
     void resetState() {
         System.clearProperty("llm.queue.config-file");
-        queueRuleService.updateRules(List.of("/prompt"));
+        queueRuleService.updateRules(List.of("/api/see-through/convert"));
         ACTIVE_REQUESTS.set(0);
         MAX_ACTIVE_REQUESTS.set(0);
         UPSTREAM_BODIES.clear();
@@ -84,8 +84,8 @@ class AppTest {
         List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://127.0.0.1:" + port + "/proxy/prompt"))
-                    .POST(HttpRequest.BodyPublishers.ofString("prompt-" + i))
+                    .uri(URI.create("http://127.0.0.1:" + port + "/proxy/api/see-through/convert"))
+                    .POST(HttpRequest.BodyPublishers.ofString("convert-" + i))
                     .build();
             futures.add(client.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
         }
@@ -94,7 +94,7 @@ class AppTest {
 
         for (CompletableFuture<HttpResponse<String>> future : futures) {
             assertEquals(200, future.get().statusCode());
-            assertTrue(future.get().body().startsWith("prompt-ok:prompt-"));
+            assertTrue(future.get().body().startsWith("convert-ok:convert-"));
         }
         assertEquals(6, UPSTREAM_BODIES.size());
         assertEquals(1, MAX_ACTIVE_REQUESTS.get());
@@ -102,7 +102,7 @@ class AppTest {
     }
 
     @Test
-    void nonPromptProxyRequestsAreForwardedDirectly() throws Exception {
+    void nonQueuedProxyRequestsAreForwardedDirectly() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
@@ -222,14 +222,14 @@ class AppTest {
         } catch (Exception e) {
             throw new IllegalStateException("启动测试上游服务失败", e);
         }
-        upstream.createContext("/prompt", exchange -> {
+        upstream.createContext("/api/see-through/convert", exchange -> {
             int active = ACTIVE_REQUESTS.incrementAndGet();
             MAX_ACTIVE_REQUESTS.updateAndGet(previous -> Math.max(previous, active));
             try {
                 sleepQuietly(80);
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 UPSTREAM_BODIES.add(body);
-                byte[] response = ("prompt-ok:" + body).getBytes(StandardCharsets.UTF_8);
+                byte[] response = ("convert-ok:" + body).getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(200, response.length);
                 try (OutputStream responseBody = exchange.getResponseBody()) {
                     responseBody.write(response);

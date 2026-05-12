@@ -13,12 +13,12 @@ class QueueRuleServiceTest {
     @Test
     void shouldQueueWhenPathMatchesConfiguredPath() {
         LlmQueueProperties properties = new LlmQueueProperties();
-        properties.setQueuedPaths(List.of("/prompt"));
+        properties.setQueuedPaths(List.of("/api/see-through/convert"));
         QueueRuleService service = new QueueRuleService(properties);
         service.updateRules(properties.getQueuedPaths());
 
-        assertTrue(service.shouldQueue("/prompt"));
-        assertTrue(service.shouldQueue("/prompt/"));
+        assertTrue(service.shouldQueue("/api/see-through/convert"));
+        assertTrue(service.shouldQueue("/api/see-through/convert/"));
         assertFalse(service.shouldQueue("/upload/image"));
         assertFalse(service.shouldQueue("/history/abc"));
     }
@@ -28,14 +28,14 @@ class QueueRuleServiceTest {
         LlmQueueProperties properties = new LlmQueueProperties();
         QueueRuleService service = new QueueRuleService(properties);
 
-        properties.setQueuedPaths(List.of("/prompt"));
+        properties.setQueuedPaths(List.of("/api/see-through/convert"));
         service.updateRules(properties.getQueuedPaths());
-        assertTrue(service.shouldQueue("/prompt"));
+        assertTrue(service.shouldQueue("/api/see-through/convert"));
         assertFalse(service.shouldQueue("/upload/image"));
 
         properties.setQueuedPaths(List.of("/upload/image"));
         service.updateRules(properties.getQueuedPaths());
-        assertFalse(service.shouldQueue("/prompt"));
+        assertFalse(service.shouldQueue("/api/see-through/convert"));
         assertTrue(service.shouldQueue("/upload/image"));
         assertTrue(service.shouldQueue("/upload/image/"));
         assertFalse(service.shouldQueue("/upload/other"));

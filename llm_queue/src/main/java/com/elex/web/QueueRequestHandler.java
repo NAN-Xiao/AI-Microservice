@@ -23,8 +23,7 @@ import java.util.concurrent.TimeoutException;
 /**
  * HTTP 请求处理器。
  *
- * <p>负责把 WebFlux 请求转换为内部请求模型，并根据目标路径决定进入队列还是直接转发。
- * 当前只有上游 {@code /prompt} 会串行排队，上传、轮询和下载接口直接转发。</p>
+ * <p>负责把 WebFlux 请求转换为内部请求模型，并根据目标路径决定进入队列还是直接转发。</p>
  */
 @Component
 public class QueueRequestHandler {
