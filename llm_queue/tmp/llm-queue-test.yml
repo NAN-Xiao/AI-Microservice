@@ -5,8 +5,8 @@ llm:
   queue:
     target-base-url: http://127.0.0.1:8000
     capacity: 2
-    request-timeout: 5m
-    upstream-timeout: 5m
+    request-timeout: 10m
+    upstream-timeout: 10m
     queued-paths:
       - /prompt
       - /api/see-through/convert

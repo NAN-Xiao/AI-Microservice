@@ -15,8 +15,8 @@ import java.util.List;
 public class LlmQueueProperties {
     private String targetBaseUrl;
     private int capacity = 2;
-    private Duration requestTimeout = Duration.ofMinutes(5);
-    private Duration upstreamTimeout = Duration.ofMinutes(5);
+    private Duration requestTimeout = Duration.ofMinutes(10);
+    private Duration upstreamTimeout = Duration.ofMinutes(10);
     private List<String> queuedPaths = new ArrayList<>(List.of("/api/see-through/convert"));
 
     public String getTargetBaseUrl() {
