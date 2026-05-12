@@ -14,7 +14,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "llm.queue")
 public class LlmQueueProperties {
     private String targetBaseUrl;
-    private int capacity = 100;
+    private int capacity = 2;
     private Duration requestTimeout = Duration.ofMinutes(5);
     private Duration upstreamTimeout = Duration.ofMinutes(5);
     private List<String> queuedPaths = new ArrayList<>(List.of("/prompt"));

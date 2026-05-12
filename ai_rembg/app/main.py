@@ -17,6 +17,7 @@ from app.middleware.auth import TokenAuthMiddleware
 from app.routers import cleanup, health, remove_bg
 from app.routers.health import set_ready
 from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
+from nacos_registry import NacosRegistry
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -25,6 +26,17 @@ _LOG_IGNORED_PATHS = {
     "/api/ai-rembg/health",
     "/api/ai-rembg/health/live",
 }
+
+nacos = NacosRegistry(
+    service_name=settings.nacos_service_name or settings.service_name,
+    service_port=settings.port,
+    server_addr=settings.nacos_server_addr,
+    namespace=settings.nacos_namespace,
+    group=settings.nacos_group,
+    username=settings.nacos_username,
+    password=settings.nacos_password,
+    enabled=str(settings.nacos_enabled).lower() in ("1", "true", "yes", "on"),
+)
 
 
 @asynccontextmanager
@@ -44,6 +56,7 @@ async def lifespan(app: FastAPI):
         logger.warning("ComfyUI 地址未设置：/remove-background 将调用失败，请配置 COMFYUI_BASE_URL")
 
     start_log_cleanup()
+    await nacos.register()
     set_ready(True)
     logger.info("服务就绪，开始接受请求")
 
@@ -51,6 +64,7 @@ async def lifespan(app: FastAPI):
 
     logger.info("收到停机信号，开始优雅停机...")
     set_ready(False)
+    await nacos.deregister()
     stop_log_cleanup()
     logger.info("AI RMBG shutdown complete")
 

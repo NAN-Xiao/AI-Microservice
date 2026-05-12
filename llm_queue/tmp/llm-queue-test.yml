@@ -1,11 +1,12 @@
 server:
-  port: 8080
+  port: 8091
 
 llm:
   queue:
-    target-base-url: http://127.0.0.1:8188
+    target-base-url: http://127.0.0.1:8000
     capacity: 2
     request-timeout: 5m
     upstream-timeout: 5m
     queued-paths:
+      - /prompt
       - /api/see-through/convert
