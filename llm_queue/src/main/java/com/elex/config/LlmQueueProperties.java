@@ -17,6 +17,7 @@ public class LlmQueueProperties {
     private int capacity = 2;
     private Duration requestTimeout = Duration.ofMinutes(10);
     private Duration upstreamTimeout = Duration.ofMinutes(10);
+    private int maxInMemorySize = 100 * 1024 * 1024;
     private List<String> queuedPaths = new ArrayList<>(List.of("/api/see-through/convert"));
 
     public String getTargetBaseUrl() {
@@ -49,6 +50,14 @@ public class LlmQueueProperties {
 
     public void setUpstreamTimeout(Duration upstreamTimeout) {
         this.upstreamTimeout = upstreamTimeout;
+    }
+
+    public int getMaxInMemorySize() {
+        return maxInMemorySize;
+    }
+
+    public void setMaxInMemorySize(int maxInMemorySize) {
+        this.maxInMemorySize = maxInMemorySize;
     }
 
     public List<String> getQueuedPaths() {

@@ -1,6 +1,7 @@
 package com.elex.web;
 
 import com.elex.client.WebClientRequestForwarder;
+import com.elex.config.LlmQueueProperties;
 import com.elex.exception.QueueFullException;
 import com.elex.model.QueuedHttpRequest;
 import com.elex.model.QueuedHttpResponse;
@@ -12,8 +13,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyExtractors;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -44,6 +47,7 @@ public class QueueRequestHandler {
     private final QueueRuleService queueRuleService;
     private final QueueRuleReloadService queueRuleReloadService;
     private final WebClientRequestForwarder forwarder;
+    private final LlmQueueProperties properties;
 
     /**
      * 创建请求处理器。
@@ -57,12 +61,14 @@ public class QueueRequestHandler {
             LlmQueueService queueService,
             QueueRuleService queueRuleService,
             QueueRuleReloadService queueRuleReloadService,
-            WebClientRequestForwarder forwarder
+            WebClientRequestForwarder forwarder,
+            LlmQueueProperties properties
     ) {
         this.queueService = queueService;
         this.queueRuleService = queueRuleService;
         this.queueRuleReloadService = queueRuleReloadService;
         this.forwarder = forwarder;
+        this.properties = properties;
     }
 
     /**
@@ -123,7 +129,13 @@ public class QueueRequestHandler {
      * @return 上游服务响应或错误响应
      */
     public Mono<ServerResponse> proxy(ServerRequest request) {
-        return request.bodyToMono(byte[].class)
+        return DataBufferUtils.join(request.body(BodyExtractors.toDataBuffers()), properties.getMaxInMemorySize())
+                .map(dataBuffer -> {
+                    byte[] body = new byte[dataBuffer.readableByteCount()];
+                    dataBuffer.read(body);
+                    DataBufferUtils.release(dataBuffer);
+                    return body;
+                })
                 .defaultIfEmpty(new byte[0])
                 .map(body -> QueuedHttpRequest.from(request, body, PROXY_PATH_PREFIX))
                 .flatMap(this::forwardByPathRule)

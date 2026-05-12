@@ -5,6 +5,7 @@ import com.elex.model.QueuedHttpRequest;
 import com.elex.model.QueuedHttpResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.net.URI;
@@ -40,7 +41,10 @@ public class WebClientRequestForwarder {
      * @param properties 上游地址和超时配置
      */
     public WebClientRequestForwarder(WebClient.Builder builder, LlmQueueProperties properties) {
-        this.webClient = builder.build();
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(properties.getMaxInMemorySize()))
+                .build();
+        this.webClient = builder.exchangeStrategies(strategies).build();
         this.properties = properties;
     }
 

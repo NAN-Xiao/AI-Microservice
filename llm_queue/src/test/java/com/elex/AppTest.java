@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -75,6 +76,7 @@ class AppTest {
         registry.add("llm.queue.capacity", () -> "20");
         registry.add("llm.queue.request-timeout", () -> "10s");
         registry.add("llm.queue.upstream-timeout", () -> "5s");
+        registry.add("llm.queue.max-in-memory-size", () -> String.valueOf(2 * 1024 * 1024));
         registry.add("server.port", () -> "0");
     }
 
@@ -138,6 +140,22 @@ class AppTest {
         assertEquals("target-created", response.body());
         assertEquals("from-upstream", response.headers().firstValue("X-Upstream-Result").orElse(""));
         assertEquals(1, UPSTREAM_BODIES.size());
+        assertEquals(0, queueService.queueSize());
+    }
+
+    @Test
+    void proxyForwardsLargeBinaryResponse() throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://127.0.0.1:" + port + "/proxy/view?filename=result.psd"))
+                .GET()
+                .build();
+
+        HttpResponse<byte[]> response = client.send(request, HttpResponse.BodyHandlers.ofByteArray());
+
+        assertEquals(200, response.statusCode());
+        assertEquals(1024 * 1024, response.body().length);
+        assertTrue(Arrays.equals(largePayload(), response.body()));
         assertEquals(0, queueService.queueSize());
     }
 
@@ -272,6 +290,16 @@ class AppTest {
                 exchange.close();
             }
         });
+        upstream.createContext("/view", exchange -> {
+            byte[] response = largePayload();
+            exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
+            exchange.sendResponseHeaders(200, response.length);
+            try (OutputStream responseBody = exchange.getResponseBody()) {
+                responseBody.write(response);
+            } finally {
+                exchange.close();
+            }
+        });
         upstreamExecutor = Executors.newCachedThreadPool();
         upstream.setExecutor(upstreamExecutor);
         upstream.start();
@@ -283,5 +311,13 @@ class AppTest {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private static byte[] largePayload() {
+        byte[] payload = new byte[1024 * 1024];
+        for (int i = 0; i < payload.length; i++) {
+            payload[i] = (byte) (i % 251);
+        }
+        return payload;
     }
 }

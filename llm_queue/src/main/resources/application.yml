@@ -7,5 +7,6 @@ llm:
     capacity: 2
     request-timeout: 10m
     upstream-timeout: 10m
+    max-in-memory-size: 104857600
     queued-paths:
       - /api/see-through/convert
