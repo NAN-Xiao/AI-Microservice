@@ -4,7 +4,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "APP_HOME=%~dp0"
 cd /d "%APP_HOME%"
 
-set "JAR_FILE=target\llm_queue-1.0-SNAPSHOT.jar"
+set "JAR_FILE=llm_queue-1.0-SNAPSHOT.jar"
 
 if "%SERVER_PORT%"=="" set "SERVER_PORT=8080"
 if "%LLM_QUEUE_TARGET_BASE_URL%"=="" set "LLM_QUEUE_TARGET_BASE_URL=http://127.0.0.1:8188"
