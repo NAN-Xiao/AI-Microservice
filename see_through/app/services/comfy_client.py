@@ -22,6 +22,7 @@ class ComfyError(Exception):
 
 
 SAVE_PSD_NODE_ID = "21"
+SOURCE_PATH = "/api/see-through/convert"
 
 
 def _load_workflow_template() -> dict[str, Any]:
@@ -166,7 +167,12 @@ def _pick_layers_info_output(history_payload: dict[str, Any]) -> dict[str, str] 
     return None
 
 
-async def convert_image_to_psd(image_bytes: bytes, filename: str, content_type: str | None) -> tuple[bytes, str, str]:
+async def convert_image_to_psd(
+    image_bytes: bytes,
+    filename: str,
+    content_type: str | None,
+    request_id: str | None = None,
+) -> tuple[bytes, str, str]:
     if not settings.comfyui_base_url:
         raise ComfyError("未配置 COMFYUI_BASE_URL")
 
@@ -174,7 +180,7 @@ async def convert_image_to_psd(image_bytes: bytes, filename: str, content_type: 
     base_url = settings.comfyui_base_url
     request_key = _make_request_prefix(filename)
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
+    async with httpx.AsyncClient(timeout=timeout, headers=_llm_queue_headers(request_id)) as client:
         upload_name = await _upload_input_image(client, base_url, image_bytes, filename, content_type, request_key)
         prompt_id = await _enqueue_prompt(client, base_url, upload_name, request_key)
         history = await _wait_for_history(client, base_url, prompt_id, timeout)
@@ -203,6 +209,16 @@ async def convert_image_to_psd(image_bytes: bytes, filename: str, content_type: 
             }
         )
         return psd_bytes, output_name, cleanup_token
+
+
+def _llm_queue_headers(request_id: str | None) -> dict[str, str]:
+    headers = {
+        "X-Llm-Queue-Source-Service": settings.service_name or "see_through",
+        "X-Llm-Queue-Source-Path": SOURCE_PATH,
+    }
+    if request_id:
+        headers["X-Request-ID"] = request_id
+    return headers
 
 
 async def _upload_input_image(

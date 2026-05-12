@@ -7,6 +7,8 @@ import com.elex.model.QueuedHttpResponse;
 import com.elex.service.LlmQueueService;
 import com.elex.service.QueueRuleReloadService;
 import com.elex.service.QueueRuleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -27,8 +29,11 @@ import java.util.concurrent.TimeoutException;
  */
 @Component
 public class QueueRequestHandler {
+    private static final Logger log = LoggerFactory.getLogger(QueueRequestHandler.class);
     private static final String PROXY_PATH_PREFIX = "/proxy";
     private static final String ADMIN_RELOAD_PATH = "/admin/reload";
+    private static final String SOURCE_SERVICE_HEADER = "X-Llm-Queue-Source-Service";
+    private static final String SOURCE_PATH_HEADER = "X-Llm-Queue-Source-Path";
     private static final List<String> RESPONSE_HEADERS_TO_SKIP = List.of(
             "connection",
             "content-length",
@@ -160,11 +165,24 @@ public class QueueRequestHandler {
      * @return 上游响应
      */
     private Mono<QueuedHttpResponse> forwardByPathRule(QueuedHttpRequest request) {
-        if (queueRuleService.shouldQueue(request.uri().getRawPath())) {
+        boolean queued = queueRuleService.shouldQueue(request.uri().getRawPath());
+        log.info(
+                "proxy request sourceService={} sourcePath={} targetPath={} queued={}",
+                firstHeader(request.headers(), SOURCE_SERVICE_HEADER),
+                firstHeader(request.headers(), SOURCE_PATH_HEADER),
+                request.uri().getRawPath(),
+                queued
+        );
+        if (queued) {
             return queueService.enqueue(request);
         }
         return Mono.fromCallable(() -> forwarder.forward(request))
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    private static String firstHeader(HttpHeaders headers, String name) {
+        String value = headers.getFirst(name);
+        return value == null || value.isBlank() ? "-" : value;
     }
 
     /**

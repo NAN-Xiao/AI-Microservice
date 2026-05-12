@@ -94,7 +94,12 @@ async def convert_to_psd(
 
     try:
         async with _comfy_slot(request_id, filename) as queue_wait_ms:
-            psd_bytes, psd_name, cleanup_token = await convert_image_to_psd(image_bytes, filename, image.content_type)
+            psd_bytes, psd_name, cleanup_token = await convert_image_to_psd(
+                image_bytes,
+                filename,
+                image.content_type,
+                request_id=request_id,
+            )
     except ComfyError as exc:
         logger.warning("转换失败: %s", exc)
         log_request(request_id, {
