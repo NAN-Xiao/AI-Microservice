@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="60">
+  <Properties>
+    <Property name="APP_NAME">llm_queue</Property>
+    <Property name="APP_LOG_PATH">${env:LLM_QUEUE_LOG_PATH:-logs}</Property>
+    <Property name="ROOT_LEVEL">${env:LLM_QUEUE_ROOT_LOG_LEVEL:-INFO}</Property>
+    <Property name="APP_LEVEL">${env:LLM_QUEUE_APP_LOG_LEVEL:-INFO}</Property>
+    <Property name="SPRING_LEVEL">${env:LLM_QUEUE_SPRING_LOG_LEVEL:-INFO}</Property>
+    <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n%throwable</Property>
+  </Properties>
+
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+    </Console>
+
+    <RollingFile name="RollingFile"
+                 fileName="${APP_LOG_PATH}/${APP_NAME}.log"
+                 filePattern="${APP_LOG_PATH}/archive/${APP_NAME}-%d{yyyy-MM-dd}-%i.log.gz">
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="100 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="30"/>
+    </RollingFile>
+
+    <RollingFile name="ErrorFile"
+                 fileName="${APP_LOG_PATH}/${APP_NAME}-error.log"
+                 filePattern="${APP_LOG_PATH}/archive/${APP_NAME}-error-%d{yyyy-MM-dd}-%i.log.gz">
+      <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+      <PatternLayout pattern="${LOG_PATTERN}"/>
+      <Policies>
+        <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+        <SizeBasedTriggeringPolicy size="100 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="30"/>
+    </RollingFile>
+  </Appenders>
+
+  <Loggers>
+    <Logger name="com.elex" level="${APP_LEVEL}" additivity="false">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+      <AppenderRef ref="ErrorFile"/>
+    </Logger>
+
+    <Logger name="org.springframework" level="${SPRING_LEVEL}"/>
+    <Logger name="reactor.netty" level="INFO"/>
+    <Logger name="io.netty" level="WARN"/>
+
+    <Root level="${ROOT_LEVEL}">
+      <AppenderRef ref="Console"/>
+      <AppenderRef ref="RollingFile"/>
+      <AppenderRef ref="ErrorFile"/>
+    </Root>
+  </Loggers>
+</Configuration>

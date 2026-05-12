@@ -1,0 +1,12 @@
+server:
+  port: 8090
+
+llm:
+  queue:
+    target-base-url: http://127.0.0.1:8000
+    capacity: 100
+    request-timeout: 5m
+    upstream-timeout: 5m
+    queued-paths:
+      - /prompt
+      - /api/see-through/convert
