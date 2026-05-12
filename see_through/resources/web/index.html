@@ -306,9 +306,10 @@
     }
 
     async function saveBlobToDisk(blob, filename) {
+      const safeFilename = ensurePsdFilename(filename);
       if (canUseNativeSavePicker) {
         try {
-          const suggestedName = filename || "result.psd";
+          const suggestedName = safeFilename;
           const handle = await window.showSaveFilePicker({
             suggestedName,
             types: [
@@ -335,12 +336,45 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = filename;
+      a.download = safeFilename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       return "browser";
+    }
+
+    function ensurePsdFilename(filename) {
+      const raw = String(filename || "").trim();
+      if (!raw) {
+        return "result.psd";
+      }
+      return raw.toLowerCase().endsWith(".psd")
+        ? raw
+        : `${raw.replace(/\.[^.]+$/, "")}.psd`;
+    }
+
+    function parseDownloadFilename(disposition, fallbackName) {
+      const header = disposition || "";
+      const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+      if (utf8Match) {
+        try {
+          return ensurePsdFilename(decodeURIComponent(utf8Match[1].replace(/^"|"$/g, "")));
+        } catch (_) {
+        }
+      }
+
+      const quotedMatch = header.match(/filename="([^"]+)"/i);
+      if (quotedMatch) {
+        return ensurePsdFilename(quotedMatch[1]);
+      }
+
+      const plainMatch = header.match(/filename=([^;]+)/i);
+      if (plainMatch) {
+        return ensurePsdFilename(plainMatch[1].trim().replace(/^"|"$/g, ""));
+      }
+
+      return ensurePsdFilename(fallbackName || "result.psd");
     }
 
     async function checkHealth() {
@@ -421,7 +455,9 @@
         activeAbortController = null;
 
         const contentType = res.headers.get("content-type") || "";
-        if (!res.ok || !contentType.includes("application/octet-stream")) {
+        const isPsdResponse = contentType.includes("application/octet-stream")
+          || contentType.includes("image/vnd.adobe.photoshop");
+        if (!res.ok || !isPsdResponse) {
           const text = await res.text();
           setStatus(parseErrorMessage(res.status, text), "error");
           resetDownloadState();
@@ -430,8 +466,7 @@
 
         const blob = await res.blob();
         const disposition = res.headers.get("content-disposition") || "";
-        const matched = disposition.match(/filename="([^"]+)"/i);
-        const filename = matched ? matched[1] : `${file.name.replace(/\.[^.]+$/, "")}.psd`;
+        const filename = parseDownloadFilename(disposition, file.name);
         const cleanupToken = res.headers.get("x-cleanup-token") || "";
 
         downloadState = {

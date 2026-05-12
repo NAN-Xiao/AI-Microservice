@@ -151,9 +151,10 @@ async def convert_to_psd(
 
     return Response(
         content=psd_bytes,
-        media_type="application/octet-stream",
+        media_type="image/vnd.adobe.photoshop",
         headers={
             "Content-Disposition": f'attachment; filename="{safe_name}"',
             "X-Cleanup-Token": cleanup_token,
+            "X-Content-Type-Options": "nosniff",
         },
     )
