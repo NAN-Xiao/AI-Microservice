@@ -11,6 +11,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueueRuleServiceTest {
     @Test
+    void defaultRulesIncludePromptAndPromot() {
+        LlmQueueProperties properties = new LlmQueueProperties();
+        QueueRuleService service = new QueueRuleService(properties);
+        service.updateRules(properties.getQueuedPaths());
+
+        assertTrue(service.shouldQueue("/prompt"));
+        assertTrue(service.shouldQueue("/promot"));
+        assertTrue(service.shouldQueue("/api/see-through/convert"));
+    }
+
+    @Test
     void shouldQueueWhenPathMatchesConfiguredPath() {
         LlmQueueProperties properties = new LlmQueueProperties();
         properties.setQueuedPaths(List.of("/api/see-through/convert"));

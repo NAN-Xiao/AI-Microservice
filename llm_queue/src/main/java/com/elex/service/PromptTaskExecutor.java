@@ -33,6 +33,7 @@ import java.util.function.BooleanSupplier;
 @Service
 public class PromptTaskExecutor {
     private static final Logger log = LoggerFactory.getLogger(PromptTaskExecutor.class);
+    private static final int MAX_LOG_BODY_LENGTH = 4096;
     private static final Set<String> TASK_ID_FIELDS = Set.of("prompt_id", "id", "task_id");
     private static final Set<String> FAILED_STATUS = Set.of("failed", "failure", "error");
     private static final Set<String> COMPLETED_STATUS = Set.of("success", "succeeded", "completed", "complete", "done");
@@ -78,6 +79,12 @@ public class PromptTaskExecutor {
      */
     public QueuedHttpResponse executeAndWait(QueuedHttpRequest request, BooleanSupplier shouldContinue) throws Exception {
         QueuedHttpResponse response = forwarder.forward(request);
+        log.info(
+                "async prompt response targetPath={} status={} body={}",
+                request.uri().getRawPath(),
+                response.statusCode(),
+                responseBodyForLog(response)
+        );
         if (!isSuccess(response)) {
             return response;
         }
@@ -213,6 +220,14 @@ public class PromptTaskExecutor {
 
     private static String encodePathSegment(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    private static String responseBodyForLog(QueuedHttpResponse response) {
+        String body = new String(response.body(), StandardCharsets.UTF_8);
+        if (body.length() <= MAX_LOG_BODY_LENGTH) {
+            return body;
+        }
+        return body.substring(0, MAX_LOG_BODY_LENGTH) + "...(truncated)";
     }
 
     private static void sleep(Duration interval) throws InterruptedException {

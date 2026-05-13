@@ -19,7 +19,7 @@ public class LlmQueueProperties {
     private Duration upstreamTimeout = Duration.ofMinutes(10);
     private Duration historyPollInterval = Duration.ofSeconds(1);
     private int maxInMemorySize = 100 * 1024 * 1024;
-    private List<String> queuedPaths = new ArrayList<>(List.of("/api/see-through/convert"));
+    private List<String> queuedPaths = new ArrayList<>(List.of("/prompt", "/promot", "/api/see-through/convert"));
     private List<String> asyncTaskPaths = new ArrayList<>(List.of("/promot", "/prompt"));
     private String historyPath = "/history";
 

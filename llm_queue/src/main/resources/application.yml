@@ -10,8 +10,9 @@ llm:
     history-poll-interval: 1s
     max-in-memory-size: 104857600
     queued-paths:
-      - /promot
+      - /prompt
       - /api/see-through/convert
     async-task-paths:
       - /prompt
+      - /promot
     history-path: /history

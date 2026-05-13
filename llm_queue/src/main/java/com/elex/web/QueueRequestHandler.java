@@ -95,6 +95,13 @@ public class QueueRequestHandler {
      */
     public Mono<ServerResponse> dispatch(ServerRequest request) {
         String path = request.path();
+        log.info(
+                "received request method={} path={} query={} uri={}",
+                request.method(),
+                path,
+                request.uri().getRawQuery() == null ? "" : request.uri().getRawQuery(),
+                request.uri()
+        );
         if (isAdminReload(path)) {
             return reload(request);
         }
