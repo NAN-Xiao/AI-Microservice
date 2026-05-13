@@ -136,6 +136,19 @@ public class QueueRequestHandler {
      * @return 上游服务响应或错误响应
      */
     public Mono<ServerResponse> proxy(ServerRequest request) {
+        String targetPath = stripProxyPrefix(request.path());
+        boolean queued = queueRuleService.shouldQueue(targetPath);
+        if (queued && queueService.isQueueFull()) {
+            log.warn(
+                    "queue full before reading request body sourceService={} sourcePath={} targetPath={} currentQueueSize={}",
+                    firstHeader(request.headers().asHttpHeaders(), SOURCE_SERVICE_HEADER),
+                    firstHeader(request.headers().asHttpHeaders(), SOURCE_PATH_HEADER),
+                    targetPath,
+                    queueService.queueSize()
+            );
+            return jsonError(HttpStatus.TOO_MANY_REQUESTS, "queue is full");
+        }
+
         return DataBufferUtils.join(request.body(BodyExtractors.toDataBuffers()), properties.getMaxInMemorySize())
                 .map(dataBuffer -> {
                     byte[] body = new byte[dataBuffer.readableByteCount()];
@@ -233,5 +246,16 @@ public class QueueRequestHandler {
 
     private static boolean isAdminReload(String path) {
         return ADMIN_RELOAD_PATH.equals(path) || (ADMIN_RELOAD_PATH + "/").equals(path);
+    }
+
+    private static String stripProxyPrefix(String path) {
+        if (path == null || path.isBlank()) {
+            return "/";
+        }
+        if (!path.startsWith(PROXY_PATH_PREFIX)) {
+            return path;
+        }
+        String stripped = path.substring(PROXY_PATH_PREFIX.length());
+        return stripped.isBlank() ? "/" : stripped;
     }
 }

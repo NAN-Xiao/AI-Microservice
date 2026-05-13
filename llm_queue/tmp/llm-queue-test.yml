@@ -5,8 +5,8 @@ llm:
   queue:
     target-base-url: http://127.0.0.1:8000
     capacity: 2
-    request-timeout: 10m
-    upstream-timeout: 10m
+    request-timeout: 15m
+    upstream-timeout: 15m
     history-poll-interval: 1s
     max-in-memory-size: 104857600
     queued-paths:

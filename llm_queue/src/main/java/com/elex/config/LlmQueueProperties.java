@@ -15,8 +15,8 @@ import java.util.List;
 public class LlmQueueProperties {
     private String targetBaseUrl;
     private int capacity = 2;
-    private Duration requestTimeout = Duration.ofMinutes(10);
-    private Duration upstreamTimeout = Duration.ofMinutes(10);
+    private Duration requestTimeout = Duration.ofMinutes(15);
+    private Duration upstreamTimeout = Duration.ofMinutes(15);
     private Duration historyPollInterval = Duration.ofSeconds(1);
     private int maxInMemorySize = 100 * 1024 * 1024;
     private List<String> queuedPaths = new ArrayList<>();

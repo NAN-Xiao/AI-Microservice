@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -27,6 +28,7 @@ public class LlmQueueService {
     private static final Logger log = LoggerFactory.getLogger(LlmQueueService.class);
 
     private final BlockingQueue<QueuedHttpTask> queue;
+    private final Semaphore slots;
     private final WebClientRequestForwarder forwarder;
     private final PromptTaskExecutor promptTaskExecutor;
     private final LlmQueueProperties properties;
@@ -49,6 +51,7 @@ public class LlmQueueService {
             throw new IllegalArgumentException("llm.queue.capacity 必须大于 0");
         }
         this.queue = new ArrayBlockingQueue<>(properties.getCapacity());
+        this.slots = new Semaphore(properties.getCapacity());
         this.forwarder = forwarder;
         this.promptTaskExecutor = promptTaskExecutor;
         this.properties = properties;
@@ -65,7 +68,13 @@ public class LlmQueueService {
         worker = new Thread(this::runLoop, "llm-queue-worker");
         worker.setDaemon(false);
         worker.start();
-        log.info("llm queue worker started capacity={}", properties.getCapacity());
+        log.info(
+                "llm queue worker started capacity={} currentQueueSize={} remainingCapacity={} occupiedSlots={}",
+                properties.getCapacity(),
+                queue.size(),
+                queue.remainingCapacity(),
+                occupiedSlots()
+        );
     }
 
     /**
@@ -77,7 +86,13 @@ public class LlmQueueService {
         if (worker != null) {
             worker.interrupt();
         }
-        log.info("llm queue worker stopping remainingQueueSize={}", queue.size());
+        log.info(
+                "llm queue worker stopping currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
+                queue.size(),
+                queue.remainingCapacity(),
+                occupiedSlots(),
+                properties.getCapacity()
+        );
     }
 
     /**
@@ -87,28 +102,52 @@ public class LlmQueueService {
      * @return 请求完成后的上游响应；队列满或超时时返回错误信号
      */
     public Mono<QueuedHttpResponse> enqueue(QueuedHttpRequest request) {
-        QueuedHttpTask task = new QueuedHttpTask(request);
-        if (!running.get() || !queue.offer(task)) {
+        if (!running.get() || !slots.tryAcquire()) {
             log.warn(
-                    "queue enqueue rejected targetPath={} running={} queueSize={} capacity={}",
+                    "queue enqueue rejected targetPath={} running={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
                     request.uri().getRawPath(),
                     running.get(),
                     queue.size(),
+                    queue.remainingCapacity(),
+                    occupiedSlots(),
+                    properties.getCapacity()
+            );
+            return Mono.error(new QueueFullException());
+        }
+        QueuedHttpTask task = new QueuedHttpTask(request, slots::release);
+        if (!queue.offer(task)) {
+            slots.release();
+            log.warn(
+                    "queue enqueue rejected after slot acquired targetPath={} running={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
+                    request.uri().getRawPath(),
+                    running.get(),
+                    queue.size(),
+                    queue.remainingCapacity(),
+                    occupiedSlots(),
                     properties.getCapacity()
             );
             return Mono.error(new QueueFullException());
         }
         log.info(
-                "queue enqueue success targetPath={} queueSize={} capacity={}",
+                "queue enqueue success targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
                 request.uri().getRawPath(),
                 queue.size(),
+                queue.remainingCapacity(),
+                occupiedSlots(),
                 properties.getCapacity()
         );
         return Mono.fromFuture(task.future())
                 .timeout(properties.getRequestTimeout())
                 .doOnCancel(() -> {
-                    task.future().cancel(true);
-                    log.warn("queue request cancelled targetPath={} queueSize={}", request.uri().getRawPath(), queue.size());
+                    task.cancel();
+                    log.warn(
+                            "queue request cancelled targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
+                            request.uri().getRawPath(),
+                            queue.size(),
+                            queue.remainingCapacity(),
+                            occupiedSlots(),
+                            properties.getCapacity()
+                    );
                 });
     }
 
@@ -122,6 +161,15 @@ public class LlmQueueService {
     }
 
     /**
+     * 当前等待队列是否已满。
+     *
+     * @return true 表示无法再接收新的等待任务
+     */
+    public boolean isQueueFull() {
+        return slots.availablePermits() == 0;
+    }
+
+    /**
      * 单 worker 消费循环。
      *
      * <p>这里是串行保证的核心：同一时间只有该线程会调用上游转发器。</p>
@@ -131,23 +179,35 @@ public class LlmQueueService {
             try {
                 QueuedHttpTask task = queue.take();
                 if (task.future().isCancelled()) {
-                    log.warn("queue task skipped because requester cancelled targetPath={} queueSize={}",
+                    log.warn("queue task skipped because requester cancelled targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
                             task.request().uri().getRawPath(),
-                            queue.size());
+                            queue.size(),
+                            queue.remainingCapacity(),
+                            occupiedSlots(),
+                            properties.getCapacity());
                     continue;
                 }
                 try {
-                    log.info("queue task started targetPath={} queueSize={}",
-                            task.request().uri().getRawPath(),
-                            queue.size());
-                    task.complete(forwardQueuedTask(task));
-                    log.info("queue task completed targetPath={} queueSize={}",
-                            task.request().uri().getRawPath(),
-                            queue.size());
-                } catch (Exception e) {
-                    log.warn("queue task failed targetPath={} queueSize={} error={}",
+                    log.info("queue task started targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
                             task.request().uri().getRawPath(),
                             queue.size(),
+                            queue.remainingCapacity(),
+                            occupiedSlots(),
+                            properties.getCapacity());
+                    task.complete(forwardQueuedTask(task));
+                    log.info("queue task completed targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={}",
+                            task.request().uri().getRawPath(),
+                            queue.size(),
+                            queue.remainingCapacity(),
+                            occupiedSlots(),
+                            properties.getCapacity());
+                } catch (Exception e) {
+                    log.warn("queue task failed targetPath={} currentQueueSize={} remainingCapacity={} occupiedSlots={} capacity={} error={}",
+                            task.request().uri().getRawPath(),
+                            queue.size(),
+                            queue.remainingCapacity(),
+                            occupiedSlots(),
+                            properties.getCapacity(),
                             e.getMessage());
                     task.fail(e);
                 }
@@ -165,5 +225,9 @@ public class LlmQueueService {
             return promptTaskExecutor.executeAndWait(task.request(), () -> running.get() && !task.isCancelled());
         }
         return forwarder.forward(task.request());
+    }
+
+    private int occupiedSlots() {
+        return properties.getCapacity() - slots.availablePermits();
     }
 }

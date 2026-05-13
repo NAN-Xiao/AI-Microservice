@@ -2,11 +2,14 @@ package com.elex;
 
 import com.elex.service.LlmQueueService;
 import com.elex.service.QueueRuleService;
+import com.elex.model.QueuedHttpRequest;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +47,7 @@ class AppTest {
     private static final AtomicInteger HISTORY_POLLS = new AtomicInteger();
     private static final Map<String, AtomicInteger> HISTORY_POLLS_BY_TASK = new ConcurrentHashMap<>();
     private static final List<String> UPSTREAM_BODIES = Collections.synchronizedList(new ArrayList<>());
+    private static volatile CountDownLatch uploadBlockLatch;
     private static HttpServer upstream;
     private static ExecutorService upstreamExecutor;
 
@@ -65,6 +70,7 @@ class AppTest {
         HISTORY_POLLS.set(0);
         HISTORY_POLLS_BY_TASK.clear();
         UPSTREAM_BODIES.clear();
+        uploadBlockLatch = null;
     }
 
     @AfterAll
@@ -272,6 +278,40 @@ class AppTest {
         assertEquals(0, queueService.queueSize());
     }
 
+    @Test
+    void queuedUploadReturnsTooManyRequestsWhenQueueIsFull() throws Exception {
+        queueRuleService.updateRules(List.of("/upload/image"));
+        uploadBlockLatch = new CountDownLatch(1);
+        List<QueuedHttpRequest> queuedRequests = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            queuedRequests.add(QueuedHttpRequest.of(
+                    HttpMethod.POST,
+                    URI.create("/upload/image"),
+                    new HttpHeaders(),
+                    ("queued-upload-" + i).getBytes(StandardCharsets.UTF_8)
+            ));
+        }
+        List<CompletableFuture<?>> accepted = new ArrayList<>();
+        for (QueuedHttpRequest queuedRequest : queuedRequests) {
+            accepted.add(queueService.enqueue(queuedRequest).toFuture());
+        }
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest rejectedRequest = HttpRequest.newBuilder()
+                .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
+                .POST(HttpRequest.BodyPublishers.ofString("queued-upload-rejected"))
+                .build();
+        HttpResponse<String> rejected = client.send(rejectedRequest, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(429, rejected.statusCode());
+        assertTrue(rejected.body().contains("queue is full"));
+
+        uploadBlockLatch.countDown();
+        CompletableFuture.allOf(accepted.toArray(new CompletableFuture[0])).get();
+        uploadBlockLatch = null;
+        assertEquals(0, queueService.queueSize());
+    }
+
     private static void ensureUpstreamStarted() {
         if (upstream != null) {
             return;
@@ -302,6 +342,7 @@ class AppTest {
             int active = ACTIVE_REQUESTS.incrementAndGet();
             MAX_ACTIVE_REQUESTS.updateAndGet(previous -> Math.max(previous, active));
             try {
+                awaitUploadRelease();
                 sleepQuietly(80);
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
                 UPSTREAM_BODIES.add(body);
@@ -387,6 +428,18 @@ class AppTest {
     private static void sleepQuietly(long millis) {
         try {
             Thread.sleep(millis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitUploadRelease() {
+        CountDownLatch latch = uploadBlockLatch;
+        if (latch == null) {
+            return;
+        }
+        try {
+            latch.await();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

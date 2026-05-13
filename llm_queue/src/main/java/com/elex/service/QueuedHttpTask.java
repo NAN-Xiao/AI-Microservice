@@ -2,6 +2,7 @@ package com.elex.service;
 
 import com.elex.model.QueuedHttpRequest;
 import com.elex.model.QueuedHttpResponse;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -12,15 +13,18 @@ import java.util.concurrent.CompletableFuture;
  */
 final class QueuedHttpTask {
     private final QueuedHttpRequest request;
+    private final Runnable onFinish;
     private final CompletableFuture<QueuedHttpResponse> future = new CompletableFuture<>();
+    private final AtomicBoolean finished = new AtomicBoolean(false);
 
     /**
      * 创建队列任务。
      *
      * @param request 请求快照
      */
-    QueuedHttpTask(QueuedHttpRequest request) {
+    QueuedHttpTask(QueuedHttpRequest request, Runnable onFinish) {
         this.request = request;
+        this.onFinish = onFinish == null ? () -> { } : onFinish;
     }
 
     /**
@@ -51,12 +55,27 @@ final class QueuedHttpTask {
     }
 
     /**
+     * 取消任务，并释放占用的队列槽位。
+     */
+    void cancel() {
+        try {
+            future.cancel(true);
+        } finally {
+            finishOnce();
+        }
+    }
+
+    /**
      * 标记任务成功完成。
      *
      * @param response 上游响应
      */
     void complete(QueuedHttpResponse response) {
-        future.complete(response);
+        try {
+            future.complete(response);
+        } finally {
+            finishOnce();
+        }
     }
 
     /**
@@ -65,6 +84,16 @@ final class QueuedHttpTask {
      * @param throwable 失败原因
      */
     void fail(Throwable throwable) {
-        future.completeExceptionally(throwable);
+        try {
+            future.completeExceptionally(throwable);
+        } finally {
+            finishOnce();
+        }
+    }
+
+    private void finishOnce() {
+        if (finished.compareAndSet(false, true)) {
+            onFinish.run();
+        }
     }
 }
