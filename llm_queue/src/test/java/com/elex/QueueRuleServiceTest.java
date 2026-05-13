@@ -11,14 +11,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueueRuleServiceTest {
     @Test
-    void defaultRulesIncludePromptAndPromot() {
+    void defaultPropertiesDoNotHardCodeBusinessPaths() {
         LlmQueueProperties properties = new LlmQueueProperties();
         QueueRuleService service = new QueueRuleService(properties);
         service.updateRules(properties.getQueuedPaths());
 
-        assertTrue(service.shouldQueue("/prompt"));
-        assertTrue(service.shouldQueue("/promot"));
+        assertFalse(service.shouldQueue("/prompt"));
+        assertFalse(service.shouldQueue("/promot"));
+        assertFalse(service.shouldQueue("/api/see-through/convert"));
+    }
+
+    @Test
+    void asyncTaskPathsDoNotImplicitlyEnterQueue() {
+        LlmQueueProperties properties = new LlmQueueProperties();
+        properties.setQueuedPaths(List.of("/api/see-through/convert"));
+        properties.setAsyncTaskPaths(List.of("/prompt"));
+        QueueRuleService service = new QueueRuleService(properties);
+        service.updateRules(properties.getQueuedPaths());
+
+        assertFalse(service.shouldQueue("/prompt"));
         assertTrue(service.shouldQueue("/api/see-through/convert"));
+        assertFalse(service.shouldQueue("/upload/image"));
     }
 
     @Test

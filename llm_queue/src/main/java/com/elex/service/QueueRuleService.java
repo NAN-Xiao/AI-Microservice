@@ -2,6 +2,8 @@ package com.elex.service;
 
 import com.elex.config.LlmQueueProperties;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +20,8 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Service
 public class QueueRuleService {
+    private static final Logger log = LoggerFactory.getLogger(QueueRuleService.class);
+
     private final LlmQueueProperties properties;
     private final AtomicReference<List<String>> queuedPaths = new AtomicReference<>(List.of());
 
@@ -46,11 +50,26 @@ public class QueueRuleService {
      */
     public boolean shouldQueue(String targetPath) {
         List<String> paths = queuedPaths.get();
+        String normalizedTargetPath = normalizePath(targetPath);
         if (paths == null || paths.isEmpty()) {
+            log.info(
+                    "queue rule match targetPath={} normalizedTargetPath={} queued=false paths=[] queuedPaths=[]",
+                    targetPath,
+                    normalizedTargetPath
+            );
             return false;
         }
 
-        return paths.contains(normalizePath(targetPath));
+        boolean queued = paths.contains(normalizedTargetPath);
+        log.info(
+                "queue rule match targetPath={} normalizedTargetPath={} queued={} paths={} queuedPaths={}",
+                targetPath,
+                normalizedTargetPath,
+                queued,
+                paths,
+                paths
+        );
+        return queued;
     }
 
     /**
@@ -62,6 +81,7 @@ public class QueueRuleService {
     public List<String> updateRules(List<String> paths) {
         List<String> normalized = normalize(paths);
         queuedPaths.set(normalized);
+        log.info("queue rules updated queuedPaths={}", normalized);
         return normalized;
     }
 

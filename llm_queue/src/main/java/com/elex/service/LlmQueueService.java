@@ -36,9 +36,9 @@ public class LlmQueueService {
     /**
      * 创建队列服务。
      *
-     * @param forwarder 实际执行 HTTP 转发的组件
+     * @param forwarder          实际执行 HTTP 转发的组件
      * @param promptTaskExecutor promot/prompt 异步任务执行器
-     * @param properties 队列容量和超时配置
+     * @param properties         队列容量和超时配置
      */
     public LlmQueueService(
             WebClientRequestForwarder forwarder,

@@ -85,6 +85,9 @@ class AppTest {
         registry.add("llm.queue.request-timeout", () -> "10s");
         registry.add("llm.queue.upstream-timeout", () -> "5s");
         registry.add("llm.queue.history-poll-interval", () -> "100ms");
+        registry.add("llm.queue.queued-paths[0]", () -> "/prompt");
+        registry.add("llm.queue.queued-paths[1]", () -> "/promot");
+        registry.add("llm.queue.queued-paths[2]", () -> "/api/see-through/convert");
         registry.add("llm.queue.async-task-paths[0]", () -> "/promot");
         registry.add("llm.queue.async-task-paths[1]", () -> "/prompt");
         registry.add("llm.queue.history-path", () -> "/history");

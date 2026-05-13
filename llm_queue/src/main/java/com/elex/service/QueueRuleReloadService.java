@@ -1,5 +1,6 @@
 package com.elex.service;
 
+import com.elex.config.LlmQueueProperties;
 import org.springframework.boot.env.YamlPropertySourceLoader;
 import org.springframework.core.env.PropertySource;
 import org.springframework.core.io.ClassPathResource;
@@ -19,18 +20,22 @@ import java.util.List;
  */
 @Service
 public class QueueRuleReloadService {
-    private static final String RULE_PREFIX = "llm.queue.queued-paths";
+    private static final String QUEUED_PATHS_PREFIX = "llm.queue.queued-paths";
+    private static final String ASYNC_TASK_PATHS_PREFIX = "llm.queue.async-task-paths";
     private static final String CONFIG_FILE_PROPERTY = "llm.queue.config-file";
     private static final String CONFIG_FILE_ENV = "LLM_QUEUE_CONFIG_FILE";
 
+    private final LlmQueueProperties properties;
     private final QueueRuleService queueRuleService;
 
     /**
      * 创建本地配置重载服务。
      *
+     * @param properties 队列配置
      * @param queueRuleService 入队规则服务
      */
-    public QueueRuleReloadService(QueueRuleService queueRuleService) {
+    public QueueRuleReloadService(LlmQueueProperties properties, QueueRuleService queueRuleService) {
+        this.properties = properties;
         this.queueRuleService = queueRuleService;
     }
 
@@ -41,8 +46,13 @@ public class QueueRuleReloadService {
      * @throws IOException 配置文件读取失败时抛出
      */
     public List<String> reload() throws IOException {
-        List<String> rules = readRules(resolveConfigResource());
-        return queueRuleService.updateRules(rules);
+        Resource resource = resolveConfigResource();
+        List<PropertySource<?>> sources = loadYaml(resource);
+        List<String> queuedPaths = readList(sources, QUEUED_PATHS_PREFIX);
+        List<String> asyncTaskPaths = readList(sources, ASYNC_TASK_PATHS_PREFIX);
+        properties.setQueuedPaths(queuedPaths);
+        properties.setAsyncTaskPaths(asyncTaskPaths);
+        return queueRuleService.updateRules(queuedPaths);
     }
 
     private Resource resolveConfigResource() {
@@ -65,23 +75,26 @@ public class QueueRuleReloadService {
         return "";
     }
 
-    private static List<String> readRules(Resource resource) throws IOException {
+    private static List<PropertySource<?>> loadYaml(Resource resource) throws IOException {
         if (!resource.exists()) {
             throw new IOException("配置文件不存在: " + resource.getDescription());
         }
 
         YamlPropertySourceLoader loader = new YamlPropertySourceLoader();
-        List<PropertySource<?>> sources = loader.load("llm-queue-reload", resource);
-        List<String> rules = new ArrayList<>();
+        return loader.load("llm-queue-reload", resource);
+    }
+
+    private static List<String> readList(List<PropertySource<?>> sources, String prefix) {
+        List<String> values = new ArrayList<>();
         for (PropertySource<?> source : sources) {
             for (int i = 0; ; i++) {
-                Object value = source.getProperty(RULE_PREFIX + "[" + i + "]");
+                Object value = source.getProperty(prefix + "[" + i + "]");
                 if (value == null) {
                     break;
                 }
-                rules.add(String.valueOf(value));
+                values.add(String.valueOf(value));
             }
         }
-        return rules;
+        return values;
     }
 }
