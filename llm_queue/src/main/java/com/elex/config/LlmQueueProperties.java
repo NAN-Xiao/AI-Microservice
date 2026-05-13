@@ -17,8 +17,11 @@ public class LlmQueueProperties {
     private int capacity = 2;
     private Duration requestTimeout = Duration.ofMinutes(10);
     private Duration upstreamTimeout = Duration.ofMinutes(10);
+    private Duration historyPollInterval = Duration.ofSeconds(1);
     private int maxInMemorySize = 100 * 1024 * 1024;
     private List<String> queuedPaths = new ArrayList<>(List.of("/api/see-through/convert"));
+    private List<String> asyncTaskPaths = new ArrayList<>(List.of("/promot", "/prompt"));
+    private String historyPath = "/history";
 
     public String getTargetBaseUrl() {
         return targetBaseUrl;
@@ -52,6 +55,14 @@ public class LlmQueueProperties {
         this.upstreamTimeout = upstreamTimeout;
     }
 
+    public Duration getHistoryPollInterval() {
+        return historyPollInterval;
+    }
+
+    public void setHistoryPollInterval(Duration historyPollInterval) {
+        this.historyPollInterval = historyPollInterval;
+    }
+
     public int getMaxInMemorySize() {
         return maxInMemorySize;
     }
@@ -66,6 +77,22 @@ public class LlmQueueProperties {
 
     public void setQueuedPaths(List<String> queuedPaths) {
         this.queuedPaths = queuedPaths;
+    }
+
+    public List<String> getAsyncTaskPaths() {
+        return asyncTaskPaths;
+    }
+
+    public void setAsyncTaskPaths(List<String> asyncTaskPaths) {
+        this.asyncTaskPaths = asyncTaskPaths;
+    }
+
+    public String getHistoryPath() {
+        return historyPath;
+    }
+
+    public void setHistoryPath(String historyPath) {
+        this.historyPath = historyPath;
     }
 
     /**

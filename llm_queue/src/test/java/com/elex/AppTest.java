@@ -37,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AppTest {
     private static final AtomicInteger ACTIVE_REQUESTS = new AtomicInteger();
     private static final AtomicInteger MAX_ACTIVE_REQUESTS = new AtomicInteger();
+    private static final AtomicInteger PROMOT_REQUESTS = new AtomicInteger();
+    private static final AtomicInteger HISTORY_POLLS = new AtomicInteger();
     private static final List<String> UPSTREAM_BODIES = Collections.synchronizedList(new ArrayList<>());
     private static HttpServer upstream;
     private static ExecutorService upstreamExecutor;
@@ -56,6 +58,8 @@ class AppTest {
         queueRuleService.updateRules(List.of("/api/see-through/convert"));
         ACTIVE_REQUESTS.set(0);
         MAX_ACTIVE_REQUESTS.set(0);
+        PROMOT_REQUESTS.set(0);
+        HISTORY_POLLS.set(0);
         UPSTREAM_BODIES.clear();
     }
 
@@ -76,6 +80,7 @@ class AppTest {
         registry.add("llm.queue.capacity", () -> "20");
         registry.add("llm.queue.request-timeout", () -> "10s");
         registry.add("llm.queue.upstream-timeout", () -> "5s");
+        registry.add("llm.queue.history-poll-interval", () -> "100ms");
         registry.add("llm.queue.max-in-memory-size", () -> String.valueOf(2 * 1024 * 1024));
         registry.add("server.port", () -> "0");
     }
@@ -123,6 +128,31 @@ class AppTest {
         }
         assertEquals(6, UPSTREAM_BODIES.size());
         assertTrue(MAX_ACTIVE_REQUESTS.get() > 1);
+        assertEquals(0, queueService.queueSize());
+    }
+
+    @Test
+    void promotRequestsWaitForHistoryBeforeNextTaskStarts() throws Exception {
+        queueRuleService.updateRules(List.of("/promot"));
+        HttpClient client = HttpClient.newHttpClient();
+        List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://127.0.0.1:" + port + "/proxy/promot"))
+                    .POST(HttpRequest.BodyPublishers.ofString("promot-" + i))
+                    .build();
+            futures.add(client.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
+        }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+        for (CompletableFuture<HttpResponse<String>> future : futures) {
+            assertEquals(200, future.get().statusCode());
+            assertTrue(future.get().body().contains("prompt_id"));
+        }
+        assertEquals(2, UPSTREAM_BODIES.size());
+        assertTrue(HISTORY_POLLS.get() >= 4);
+        assertEquals(1, MAX_ACTIVE_REQUESTS.get());
         assertEquals(0, queueService.queueSize());
     }
 
@@ -274,6 +304,42 @@ class AppTest {
                 exchange.close();
             }
         });
+        upstream.createContext("/promot", exchange -> {
+            int active = ACTIVE_REQUESTS.incrementAndGet();
+            MAX_ACTIVE_REQUESTS.updateAndGet(previous -> Math.max(previous, active));
+            try {
+                int index = PROMOT_REQUESTS.incrementAndGet();
+                String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                UPSTREAM_BODIES.add(body);
+                byte[] response = ("{\"prompt_id\":\"task-" + index + "\"}").getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, response.length);
+                try (OutputStream responseBody = exchange.getResponseBody()) {
+                    responseBody.write(response);
+                }
+            } finally {
+                ACTIVE_REQUESTS.decrementAndGet();
+                exchange.close();
+            }
+        });
+        upstream.createContext("/history", exchange -> {
+            int active = ACTIVE_REQUESTS.incrementAndGet();
+            MAX_ACTIVE_REQUESTS.updateAndGet(previous -> Math.max(previous, active));
+            try {
+                int poll = HISTORY_POLLS.incrementAndGet();
+                String path = exchange.getRequestURI().getPath();
+                String taskId = path.substring("/history/".length());
+                boolean completed = poll % 2 == 0;
+                byte[] response = historyResponse(taskId, completed).getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().set("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length);
+                try (OutputStream responseBody = exchange.getResponseBody()) {
+                    responseBody.write(response);
+                }
+            } finally {
+                ACTIVE_REQUESTS.decrementAndGet();
+                exchange.close();
+            }
+        });
         upstream.createContext("/v1/created", exchange -> {
             ACTIVE_REQUESTS.incrementAndGet();
             try {
@@ -319,5 +385,12 @@ class AppTest {
             payload[i] = (byte) (i % 251);
         }
         return payload;
+    }
+
+    private static String historyResponse(String taskId, boolean completed) {
+        if (!completed) {
+            return "{\"" + taskId + "\":{\"status\":{\"completed\":false,\"status_str\":\"running\"},\"outputs\":{}}}";
+        }
+        return "{\"" + taskId + "\":{\"status\":{\"completed\":true,\"status_str\":\"success\"},\"outputs\":{\"9\":{}}}}";
     }
 }

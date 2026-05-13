@@ -7,7 +7,13 @@ llm:
     capacity: 2
     request-timeout: 10m
     upstream-timeout: 10m
+    history-poll-interval: 1s
     max-in-memory-size: 104857600
     queued-paths:
       - /prompt
+      - /promot
       - /api/see-through/convert
+    async-task-paths:
+      - /prompt
+      - /promot
+    history-path: /history

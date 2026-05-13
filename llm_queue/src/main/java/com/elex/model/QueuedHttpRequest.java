@@ -26,6 +26,19 @@ public final class QueuedHttpRequest {
     }
 
     /**
+     * 创建指定目标 URI 的请求快照。
+     *
+     * @param method HTTP 方法
+     * @param uri 已剥离代理前缀的目标 URI
+     * @param headers 请求头
+     * @param body 请求体
+     * @return 请求快照
+     */
+    public static QueuedHttpRequest of(HttpMethod method, URI uri, HttpHeaders headers, byte[] body) {
+        return new QueuedHttpRequest(method, uri, headers, body == null ? new byte[0] : body);
+    }
+
+    /**
      * 从 WebFlux 请求创建请求快照。
      *
      * @param request WebFlux 请求

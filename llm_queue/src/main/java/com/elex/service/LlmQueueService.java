@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class LlmQueueService {
     private final BlockingQueue<QueuedHttpTask> queue;
     private final WebClientRequestForwarder forwarder;
+    private final PromptTaskExecutor promptTaskExecutor;
     private final LlmQueueProperties properties;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private Thread worker;
@@ -32,14 +33,20 @@ public class LlmQueueService {
      * 创建队列服务。
      *
      * @param forwarder 实际执行 HTTP 转发的组件
+     * @param promptTaskExecutor promot/prompt 异步任务执行器
      * @param properties 队列容量和超时配置
      */
-    public LlmQueueService(WebClientRequestForwarder forwarder, LlmQueueProperties properties) {
+    public LlmQueueService(
+            WebClientRequestForwarder forwarder,
+            PromptTaskExecutor promptTaskExecutor,
+            LlmQueueProperties properties
+    ) {
         if (properties.getCapacity() <= 0) {
             throw new IllegalArgumentException("llm.queue.capacity 必须大于 0");
         }
         this.queue = new ArrayBlockingQueue<>(properties.getCapacity());
         this.forwarder = forwarder;
+        this.promptTaskExecutor = promptTaskExecutor;
         this.properties = properties;
     }
 
@@ -105,7 +112,7 @@ public class LlmQueueService {
                     continue;
                 }
                 try {
-                    task.complete(forwarder.forward(task.request()));
+                    task.complete(forwardQueuedTask(task));
                 } catch (Exception e) {
                     task.fail(e);
                 }
@@ -116,5 +123,12 @@ public class LlmQueueService {
                 }
             }
         }
+    }
+
+    private QueuedHttpResponse forwardQueuedTask(QueuedHttpTask task) throws Exception {
+        if (promptTaskExecutor.supports(task.request())) {
+            return promptTaskExecutor.executeAndWait(task.request(), () -> running.get() && !task.isCancelled());
+        }
+        return forwarder.forward(task.request());
     }
 }

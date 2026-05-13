@@ -42,6 +42,15 @@ final class QueuedHttpTask {
     }
 
     /**
+     * 判断调用方是否已经取消等待。
+     *
+     * @return true 表示任务已取消
+     */
+    boolean isCancelled() {
+        return future.isCancelled();
+    }
+
+    /**
      * 标记任务成功完成。
      *
      * @param response 上游响应
