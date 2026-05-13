@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +41,7 @@ class AppTest {
     private static final AtomicInteger MAX_ACTIVE_REQUESTS = new AtomicInteger();
     private static final AtomicInteger PROMOT_REQUESTS = new AtomicInteger();
     private static final AtomicInteger HISTORY_POLLS = new AtomicInteger();
+    private static final Map<String, AtomicInteger> HISTORY_POLLS_BY_TASK = new ConcurrentHashMap<>();
     private static final List<String> UPSTREAM_BODIES = Collections.synchronizedList(new ArrayList<>());
     private static HttpServer upstream;
     private static ExecutorService upstreamExecutor;
@@ -60,6 +63,7 @@ class AppTest {
         MAX_ACTIVE_REQUESTS.set(0);
         PROMOT_REQUESTS.set(0);
         HISTORY_POLLS.set(0);
+        HISTORY_POLLS_BY_TASK.clear();
         UPSTREAM_BODIES.clear();
     }
 
@@ -81,6 +85,9 @@ class AppTest {
         registry.add("llm.queue.request-timeout", () -> "10s");
         registry.add("llm.queue.upstream-timeout", () -> "5s");
         registry.add("llm.queue.history-poll-interval", () -> "100ms");
+        registry.add("llm.queue.async-task-paths[0]", () -> "/promot");
+        registry.add("llm.queue.async-task-paths[1]", () -> "/prompt");
+        registry.add("llm.queue.history-path", () -> "/history");
         registry.add("llm.queue.max-in-memory-size", () -> String.valueOf(2 * 1024 * 1024));
         registry.add("server.port", () -> "0");
     }
@@ -152,6 +159,7 @@ class AppTest {
         }
         assertEquals(2, UPSTREAM_BODIES.size());
         assertTrue(HISTORY_POLLS.get() >= 4);
+        assertTrue(HISTORY_POLLS_BY_TASK.values().stream().allMatch(count -> count.get() >= 2));
         assertEquals(1, MAX_ACTIVE_REQUESTS.get());
         assertEquals(0, queueService.queueSize());
     }
@@ -328,7 +336,9 @@ class AppTest {
                 int poll = HISTORY_POLLS.incrementAndGet();
                 String path = exchange.getRequestURI().getPath();
                 String taskId = path.substring("/history/".length());
-                boolean completed = poll % 2 == 0;
+                int taskPoll = HISTORY_POLLS_BY_TASK.computeIfAbsent(taskId, ignored -> new AtomicInteger())
+                        .incrementAndGet();
+                boolean completed = taskPoll >= 2;
                 byte[] response = historyResponse(taskId, completed).getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);

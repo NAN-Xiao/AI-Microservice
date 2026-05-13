@@ -7,6 +7,8 @@ import com.elex.model.QueuedHttpRequest;
 import com.elex.model.QueuedHttpResponse;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -22,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Service
 public class LlmQueueService {
+    private static final Logger log = LoggerFactory.getLogger(LlmQueueService.class);
+
     private final BlockingQueue<QueuedHttpTask> queue;
     private final WebClientRequestForwarder forwarder;
     private final PromptTaskExecutor promptTaskExecutor;
@@ -61,6 +65,7 @@ public class LlmQueueService {
         worker = new Thread(this::runLoop, "llm-queue-worker");
         worker.setDaemon(false);
         worker.start();
+        log.info("llm queue worker started capacity={}", properties.getCapacity());
     }
 
     /**
@@ -72,6 +77,7 @@ public class LlmQueueService {
         if (worker != null) {
             worker.interrupt();
         }
+        log.info("llm queue worker stopping remainingQueueSize={}", queue.size());
     }
 
     /**
@@ -83,11 +89,27 @@ public class LlmQueueService {
     public Mono<QueuedHttpResponse> enqueue(QueuedHttpRequest request) {
         QueuedHttpTask task = new QueuedHttpTask(request);
         if (!running.get() || !queue.offer(task)) {
+            log.warn(
+                    "queue enqueue rejected targetPath={} running={} queueSize={} capacity={}",
+                    request.uri().getRawPath(),
+                    running.get(),
+                    queue.size(),
+                    properties.getCapacity()
+            );
             return Mono.error(new QueueFullException());
         }
+        log.info(
+                "queue enqueue success targetPath={} queueSize={} capacity={}",
+                request.uri().getRawPath(),
+                queue.size(),
+                properties.getCapacity()
+        );
         return Mono.fromFuture(task.future())
                 .timeout(properties.getRequestTimeout())
-                .doOnCancel(() -> task.future().cancel(true));
+                .doOnCancel(() -> {
+                    task.future().cancel(true);
+                    log.warn("queue request cancelled targetPath={} queueSize={}", request.uri().getRawPath(), queue.size());
+                });
     }
 
     /**
@@ -109,11 +131,24 @@ public class LlmQueueService {
             try {
                 QueuedHttpTask task = queue.take();
                 if (task.future().isCancelled()) {
+                    log.warn("queue task skipped because requester cancelled targetPath={} queueSize={}",
+                            task.request().uri().getRawPath(),
+                            queue.size());
                     continue;
                 }
                 try {
+                    log.info("queue task started targetPath={} queueSize={}",
+                            task.request().uri().getRawPath(),
+                            queue.size());
                     task.complete(forwardQueuedTask(task));
+                    log.info("queue task completed targetPath={} queueSize={}",
+                            task.request().uri().getRawPath(),
+                            queue.size());
                 } catch (Exception e) {
+                    log.warn("queue task failed targetPath={} queueSize={} error={}",
+                            task.request().uri().getRawPath(),
+                            queue.size(),
+                            e.getMessage());
                     task.fail(e);
                 }
             } catch (InterruptedException e) {

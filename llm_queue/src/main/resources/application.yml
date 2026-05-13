@@ -13,6 +13,5 @@ llm:
       - /promot
       - /api/see-through/convert
     async-task-paths:
-      - /promot
       - /prompt
     history-path: /history

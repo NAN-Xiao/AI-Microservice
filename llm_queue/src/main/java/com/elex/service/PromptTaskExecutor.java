@@ -106,6 +106,11 @@ public class PromptTaskExecutor {
                 log.info("async prompt task completed taskId={}", taskId);
                 return;
             }
+            log.info(
+                    "async prompt task still running taskId={} historyStatus={}",
+                    taskId,
+                    historyResponse.statusCode()
+            );
 
             sleep(pollInterval);
         }
