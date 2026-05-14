@@ -11,7 +11,7 @@ from fastapi.responses import Response
 
 from app.config import settings
 from app.models.response import ApiResult
-from app.services.comfy_client import ComfyError, convert_image_to_psd
+from app.services.comfy_client import ComfyError, ComfyQueueFullError, convert_image_to_psd
 from app.services.result_store import cleanup_by_token
 from app.utils.logger import log_request
 
@@ -100,6 +100,18 @@ async def convert_to_psd(
                 image.content_type,
                 request_id=request_id,
             )
+    except ComfyQueueFullError as exc:
+        logger.warning("See Through 队列已满: %s", exc)
+        log_request(request_id, {
+            "mode": "convert",
+            "status": "failed",
+            "filename": filename,
+            "content_type": image.content_type,
+            "size_bytes": len(image_bytes),
+            "queue_wait_ms": round(queue_wait_ms, 1),
+            "error": str(exc),
+        })
+        return ApiResult.error(429, str(exc))
     except ComfyError as exc:
         logger.warning("转换失败: %s", exc)
         log_request(request_id, {

@@ -312,6 +312,44 @@ class AppTest {
         assertEquals(0, queueService.queueSize());
     }
 
+    @Test
+    void seeThroughUploadReturnsTooManyRequestsWhenSourceQueueIsFull() throws Exception {
+        queueRuleService.updateRules(List.of("/api/see-through/convert"));
+        uploadBlockLatch = new CountDownLatch(1);
+        List<QueuedHttpRequest> queuedRequests = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            queuedRequests.add(QueuedHttpRequest.of(
+                    HttpMethod.POST,
+                    URI.create("/upload/image"),
+                    new HttpHeaders(),
+                    ("queued-upload-" + i).getBytes(StandardCharsets.UTF_8)
+            ));
+        }
+        List<CompletableFuture<?>> accepted = new ArrayList<>();
+        for (QueuedHttpRequest queuedRequest : queuedRequests) {
+            accepted.add(queueService.enqueue(queuedRequest).toFuture());
+        }
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest rejectedRequest = HttpRequest.newBuilder()
+                .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
+                .header("X-Llm-Queue-Source-Service", "see_through")
+                .header("X-Llm-Queue-Source-Path", "/api/see-through/convert")
+                .POST(HttpRequest.BodyPublishers.ofString("should-not-upload"))
+                .build();
+        HttpResponse<String> rejected = client.send(rejectedRequest, HttpResponse.BodyHandlers.ofString());
+
+        assertEquals(429, rejected.statusCode());
+        assertTrue(rejected.body().contains("queue is full"));
+
+        uploadBlockLatch.countDown();
+        CompletableFuture.allOf(accepted.toArray(new CompletableFuture[0])).get();
+        uploadBlockLatch = null;
+        assertEquals(20, UPSTREAM_BODIES.size());
+        assertTrue(UPSTREAM_BODIES.stream().noneMatch("should-not-upload"::equals));
+        assertEquals(0, queueService.queueSize());
+    }
+
     private static void ensureUpstreamStarted() {
         if (upstream != null) {
             return;

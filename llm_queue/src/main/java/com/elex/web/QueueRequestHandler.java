@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.BodyExtractors;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -23,6 +24,7 @@ import reactor.core.scheduler.Schedulers;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeoutException;
 
 /**
@@ -33,8 +35,10 @@ import java.util.concurrent.TimeoutException;
 @Component
 public class QueueRequestHandler {
     private static final Logger log = LoggerFactory.getLogger(QueueRequestHandler.class);
+    private static final int MAX_LOG_BODY_LENGTH = 4096;
     private static final String PROXY_PATH_PREFIX = "/proxy";
     private static final String ADMIN_RELOAD_PATH = "/admin/reload";
+    private static final String COMFYUI_UPLOAD_IMAGE_PATH = "/upload/image";
     private static final String SOURCE_SERVICE_HEADER = "X-Llm-Queue-Source-Service";
     private static final String SOURCE_PATH_HEADER = "X-Llm-Queue-Source-Path";
     private static final List<String> RESPONSE_HEADERS_TO_SKIP = List.of(
@@ -138,11 +142,12 @@ public class QueueRequestHandler {
     public Mono<ServerResponse> proxy(ServerRequest request) {
         String targetPath = stripProxyPrefix(request.path());
         boolean queued = queueRuleService.shouldQueue(targetPath);
-        if (queued && queueService.isQueueFull()) {
+        String sourcePath = firstHeader(request.headers().asHttpHeaders(), SOURCE_PATH_HEADER);
+        if (shouldRejectBeforeReadingBody(queued, targetPath, sourcePath)) {
             log.warn(
                     "queue full before reading request body sourceService={} sourcePath={} targetPath={} currentQueueSize={}",
                     firstHeader(request.headers().asHttpHeaders(), SOURCE_SERVICE_HEADER),
-                    firstHeader(request.headers().asHttpHeaders(), SOURCE_PATH_HEADER),
+                    sourcePath,
                     targetPath,
                     queueService.queueSize()
             );
@@ -182,6 +187,12 @@ public class QueueRequestHandler {
      * @return 返回给调用方的 HTTP 响应
      */
     private Mono<ServerResponse> toServerResponse(QueuedHttpResponse response) {
+        log.info(
+                "final response source=upstream status={} contentType={} body={}",
+                response.statusCode(),
+                response.headers().getFirst(HttpHeaders.CONTENT_TYPE),
+                bodyForLog(response.headers(), response.body())
+        );
         return ServerResponse.status(response.statusCode())
                 .headers(headers -> copyResponseHeaders(headers, response.headers()))
                 .bodyValue(response.body());
@@ -210,6 +221,22 @@ public class QueueRequestHandler {
         }
         return Mono.fromCallable(() -> forwarder.forward(request))
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * 判断是否应在读取请求体前直接拒绝。
+     *
+     * <p>See Through 会先上传图片到 ComfyUI，再提交 /prompt。若 /prompt 队列已满，
+     * 此处在 /upload/image 阶段提前拒绝，避免大图片继续转发到 ComfyUI。</p>
+     */
+    private boolean shouldRejectBeforeReadingBody(boolean queued, String targetPath, String sourcePath) {
+        if (!queueService.isQueueFull()) {
+            return false;
+        }
+        if (queued) {
+            return true;
+        }
+        return COMFYUI_UPLOAD_IMAGE_PATH.equals(targetPath) && queueRuleService.shouldQueue(sourcePath);
     }
 
     private static String firstHeader(HttpHeaders headers, String name) {
@@ -241,6 +268,7 @@ public class QueueRequestHandler {
      * @return JSON 错误响应
      */
     private static Mono<ServerResponse> jsonError(HttpStatus status, String message) {
+        log.warn("final response source=llm_queue status={} body={{\"error\":\"{}\"}}", status.value(), message);
         return ServerResponse.status(status).bodyValue(Map.of("error", message));
     }
 
@@ -257,5 +285,30 @@ public class QueueRequestHandler {
         }
         String stripped = path.substring(PROXY_PATH_PREFIX.length());
         return stripped.isBlank() ? "/" : stripped;
+    }
+
+    private static String bodyForLog(HttpHeaders headers, byte[] body) {
+        if (body == null) {
+            return "";
+        }
+        if (!isTextual(headers)) {
+            return "<binary body length=" + body.length + ">";
+        }
+        String text = new String(body, StandardCharsets.UTF_8);
+        if (text.length() <= MAX_LOG_BODY_LENGTH) {
+            return text;
+        }
+        return text.substring(0, MAX_LOG_BODY_LENGTH) + "...(truncated)";
+    }
+
+    private static boolean isTextual(HttpHeaders headers) {
+        MediaType contentType = headers.getContentType();
+        if (contentType == null) {
+            return true;
+        }
+        return "text".equalsIgnoreCase(contentType.getType())
+                || contentType.isCompatibleWith(MediaType.APPLICATION_JSON)
+                || contentType.isCompatibleWith(MediaType.APPLICATION_XML)
+                || contentType.isCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED);
     }
 }
