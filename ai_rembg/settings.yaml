@@ -8,7 +8,7 @@ service:
   name: ai_rembg
 
 comfyui:
-  base_url: http://10.1.5.194:8080
+  base_url: http://10.1.5.194:8080/proxy
   timeout_seconds: 900
   poll_interval_seconds: 1
   concurrency: 1

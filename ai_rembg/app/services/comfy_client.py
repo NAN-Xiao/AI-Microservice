@@ -208,7 +208,11 @@ async def _enqueue_prompt(
         "client_id": _make_client_id(request_key),
     }
 
-    resp = await client.post(f"{base_url}/prompt", json=payload)
+    resp = await client.post(
+        f"{base_url}/prompt",
+        json=payload,
+        headers={"llm_queue_request": "1"},
+    )
     resp.raise_for_status()
 
     data = resp.json()

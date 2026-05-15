@@ -323,7 +323,7 @@ async def _enqueue_prompt(
     started_at = time.monotonic()
     logger.info("[%s] 调用 ComfyUI: stage=enqueue_prompt url=%s client_id=%s", filename_prefix, url, payload["client_id"])
     try:
-        resp = await client.post(url, json=payload)
+        resp = await client.post(url, json=payload, headers={"llm_queue_request": "1"})
     except httpx.HTTPError as exc:
         _log_http_error("enqueue_prompt", url, exc, started_at, filename_prefix)
         raise

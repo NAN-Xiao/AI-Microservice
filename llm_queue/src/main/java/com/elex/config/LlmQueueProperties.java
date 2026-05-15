@@ -3,13 +3,12 @@ package com.elex.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * llm_queue 的配置绑定对象。
  *
- * <p>配置前缀为 {@code llm.queue}，用于控制上游目标地址、队列容量、超时时间和入队路径。</p>
+ * <p>配置前缀为 {@code llm.queue}，用于控制上游目标地址、队列容量、超时时间和异步任务路径。</p>
  */
 @ConfigurationProperties(prefix = "llm.queue")
 public class LlmQueueProperties {
@@ -19,8 +18,7 @@ public class LlmQueueProperties {
     private Duration upstreamTimeout = Duration.ofMinutes(15);
     private Duration historyPollInterval = Duration.ofSeconds(1);
     private int maxInMemorySize = 100 * 1024 * 1024;
-    private List<String> queuedPaths = new ArrayList<>();
-    private List<String> asyncTaskPaths = new ArrayList<>();
+    private List<String> asyncTaskPaths = List.of();
     private String historyPath = "/history";
 
     public String getTargetBaseUrl() {
@@ -69,14 +67,6 @@ public class LlmQueueProperties {
 
     public void setMaxInMemorySize(int maxInMemorySize) {
         this.maxInMemorySize = maxInMemorySize;
-    }
-
-    public List<String> getQueuedPaths() {
-        return queuedPaths;
-    }
-
-    public void setQueuedPaths(List<String> queuedPaths) {
-        this.queuedPaths = queuedPaths;
     }
 
     public List<String> getAsyncTaskPaths() {

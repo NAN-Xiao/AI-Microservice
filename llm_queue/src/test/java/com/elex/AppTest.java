@@ -1,7 +1,6 @@
 package com.elex;
 
 import com.elex.service.LlmQueueService;
-import com.elex.service.QueueRuleService;
 import com.elex.model.QueuedHttpRequest;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
@@ -22,8 +21,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,13 +54,9 @@ class AppTest {
     @Autowired
     LlmQueueService queueService;
 
-    @Autowired
-    QueueRuleService queueRuleService;
-
     @BeforeEach
     void resetState() {
         System.clearProperty("llm.queue.config-file");
-        queueRuleService.updateRules(List.of("/api/see-through/convert"));
         ACTIVE_REQUESTS.set(0);
         MAX_ACTIVE_REQUESTS.set(0);
         PROMOT_REQUESTS.set(0);
@@ -91,9 +84,6 @@ class AppTest {
         registry.add("llm.queue.request-timeout", () -> "10s");
         registry.add("llm.queue.upstream-timeout", () -> "5s");
         registry.add("llm.queue.history-poll-interval", () -> "100ms");
-        registry.add("llm.queue.queued-paths[0]", () -> "/prompt");
-        registry.add("llm.queue.queued-paths[1]", () -> "/promot");
-        registry.add("llm.queue.queued-paths[2]", () -> "/api/see-through/convert");
         registry.add("llm.queue.async-task-paths[0]", () -> "/promot");
         registry.add("llm.queue.async-task-paths[1]", () -> "/prompt");
         registry.add("llm.queue.history-path", () -> "/history");
@@ -102,7 +92,7 @@ class AppTest {
     }
 
     @Test
-    void requestsAreForwardedSerially() throws Exception {
+    void proxyRequestsAreForwardedDirectlyWithoutQueueHeader() throws Exception {
         HttpClient client = HttpClient.newHttpClient();
         List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
         for (int i = 0; i < 6; i++) {
@@ -120,7 +110,7 @@ class AppTest {
             assertTrue(future.get().body().startsWith("convert-ok:convert-"));
         }
         assertEquals(6, UPSTREAM_BODIES.size());
-        assertEquals(1, MAX_ACTIVE_REQUESTS.get());
+        assertTrue(MAX_ACTIVE_REQUESTS.get() > 1);
         assertEquals(0, queueService.queueSize());
     }
 
@@ -148,13 +138,37 @@ class AppTest {
     }
 
     @Test
+    void headerMarkedProxyRequestsEnterQueue() throws Exception {
+        HttpClient client = HttpClient.newHttpClient();
+        List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
+                    .header("llm_queue_request", "true")
+                    .POST(HttpRequest.BodyPublishers.ofString("header-upload-" + i))
+                    .build();
+            futures.add(client.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
+        }
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+
+        for (CompletableFuture<HttpResponse<String>> future : futures) {
+            assertEquals(200, future.get().statusCode());
+            assertTrue(future.get().body().startsWith("upload-ok:header-upload-"));
+        }
+        assertEquals(6, UPSTREAM_BODIES.size());
+        assertEquals(1, MAX_ACTIVE_REQUESTS.get());
+        assertEquals(0, queueService.queueSize());
+    }
+
+    @Test
     void promotRequestsWaitForHistoryBeforeNextTaskStarts() throws Exception {
-        queueRuleService.updateRules(List.of("/promot"));
         HttpClient client = HttpClient.newHttpClient();
         List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
         for (int i = 0; i < 2; i++) {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("http://127.0.0.1:" + port + "/proxy/promot"))
+                    .header("llm_queue_request", "true")
                     .POST(HttpRequest.BodyPublishers.ofString("promot-" + i))
                     .build();
             futures.add(client.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
@@ -238,49 +252,7 @@ class AppTest {
     }
 
     @Test
-    void adminReloadUpdatesQueueRulesFromLocalConfigFile() throws Exception {
-        Path configFile = Files.createTempFile("llm-queue-test-", ".yml");
-        Files.writeString(configFile, """
-                llm:
-                  queue:
-                    queued-paths:
-                      - /upload/image
-                """, StandardCharsets.UTF_8);
-        System.setProperty("llm.queue.config-file", configFile.toString());
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest reloadRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + port + "/admin/reload"))
-                .POST(HttpRequest.BodyPublishers.noBody())
-                .build();
-
-        HttpResponse<String> reloadResponse = client.send(reloadRequest, HttpResponse.BodyHandlers.ofString());
-        assertEquals(200, reloadResponse.statusCode());
-        assertTrue(reloadResponse.body().contains("/upload/image"));
-
-        List<CompletableFuture<HttpResponse<String>>> futures = new ArrayList<>();
-        for (int i = 0; i < 6; i++) {
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
-                    .POST(HttpRequest.BodyPublishers.ofString("reloaded-upload-" + i))
-                    .build();
-            futures.add(client.sendAsync(request, HttpResponse.BodyHandlers.ofString()));
-        }
-
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
-
-        for (CompletableFuture<HttpResponse<String>> future : futures) {
-            assertEquals(200, future.get().statusCode());
-            assertTrue(future.get().body().startsWith("upload-ok:reloaded-upload-"));
-        }
-        assertEquals(6, UPSTREAM_BODIES.size());
-        assertEquals(1, MAX_ACTIVE_REQUESTS.get());
-        assertEquals(0, queueService.queueSize());
-    }
-
-    @Test
-    void queuedUploadReturnsTooManyRequestsWhenQueueIsFull() throws Exception {
-        queueRuleService.updateRules(List.of("/upload/image"));
+    void headerMarkedUploadReturnsTooManyRequestsWhenQueueIsFull() throws Exception {
         uploadBlockLatch = new CountDownLatch(1);
         List<QueuedHttpRequest> queuedRequests = new ArrayList<>();
         for (int i = 0; i < 20; i++) {
@@ -299,43 +271,8 @@ class AppTest {
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest rejectedRequest = HttpRequest.newBuilder()
                 .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
-                .POST(HttpRequest.BodyPublishers.ofString("queued-upload-rejected"))
-                .build();
-        HttpResponse<String> rejected = client.send(rejectedRequest, HttpResponse.BodyHandlers.ofString());
-
-        assertEquals(429, rejected.statusCode());
-        assertTrue(rejected.body().contains("queue is full"));
-
-        uploadBlockLatch.countDown();
-        CompletableFuture.allOf(accepted.toArray(new CompletableFuture[0])).get();
-        uploadBlockLatch = null;
-        assertEquals(0, queueService.queueSize());
-    }
-
-    @Test
-    void seeThroughUploadReturnsTooManyRequestsWhenSourceQueueIsFull() throws Exception {
-        queueRuleService.updateRules(List.of("/api/see-through/convert"));
-        uploadBlockLatch = new CountDownLatch(1);
-        List<QueuedHttpRequest> queuedRequests = new ArrayList<>();
-        for (int i = 0; i < 20; i++) {
-            queuedRequests.add(QueuedHttpRequest.of(
-                    HttpMethod.POST,
-                    URI.create("/upload/image"),
-                    new HttpHeaders(),
-                    ("queued-upload-" + i).getBytes(StandardCharsets.UTF_8)
-            ));
-        }
-        List<CompletableFuture<?>> accepted = new ArrayList<>();
-        for (QueuedHttpRequest queuedRequest : queuedRequests) {
-            accepted.add(queueService.enqueue(queuedRequest).toFuture());
-        }
-
-        HttpClient client = HttpClient.newHttpClient();
-        HttpRequest rejectedRequest = HttpRequest.newBuilder()
-                .uri(URI.create("http://127.0.0.1:" + port + "/proxy/upload/image"))
-                .header("X-Llm-Queue-Source-Service", "see_through")
-                .header("X-Llm-Queue-Source-Path", "/api/see-through/convert")
-                .POST(HttpRequest.BodyPublishers.ofString("should-not-upload"))
+                .header("llm_queue_request", "true")
+                .POST(HttpRequest.BodyPublishers.ofString("header-marked-should-not-upload"))
                 .build();
         HttpResponse<String> rejected = client.send(rejectedRequest, HttpResponse.BodyHandlers.ofString());
 
@@ -346,7 +283,7 @@ class AppTest {
         CompletableFuture.allOf(accepted.toArray(new CompletableFuture[0])).get();
         uploadBlockLatch = null;
         assertEquals(20, UPSTREAM_BODIES.size());
-        assertTrue(UPSTREAM_BODIES.stream().noneMatch("should-not-upload"::equals));
+        assertTrue(UPSTREAM_BODIES.stream().noneMatch("header-marked-should-not-upload"::equals));
         assertEquals(0, queueService.queueSize());
     }
 
