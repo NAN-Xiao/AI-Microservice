@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.middleware.auth import TokenAuthMiddleware
-from app.routers import cleanup, health, remove_bg
+from app.routers import cleanup, health, remove_bg, web
 from app.routers.health import set_ready
 from app.utils.logger import setup_logging, start_log_cleanup, stop_log_cleanup
 
@@ -110,3 +110,4 @@ async def request_logging_middleware(request: Request, call_next):
 app.include_router(remove_bg.router)
 app.include_router(cleanup.router)
 app.include_router(health.router)
+app.include_router(web.router)
