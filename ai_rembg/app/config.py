@@ -74,7 +74,7 @@ def _build_settings() -> "Settings":
         ).rstrip("/"),
         comfyui_timeout=_from_env(
             "COMFYUI_TIMEOUT",
-            _section_get(c, "comfyui", "timeout_seconds", 300),
+            _section_get(c, "comfyui", "timeout_seconds", 900),
             int,
         ),
         comfyui_poll_interval=_from_env(

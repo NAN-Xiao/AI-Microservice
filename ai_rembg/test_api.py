@@ -16,7 +16,7 @@ import httpx
 
 
 DEFAULT_BASE_URL = "http://127.0.0.1:9005"
-DEFAULT_TIMEOUT = 600
+DEFAULT_TIMEOUT = 900
 
 
 def main() -> int:
