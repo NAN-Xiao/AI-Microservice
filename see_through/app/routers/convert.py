@@ -125,7 +125,14 @@ async def convert_to_psd(
         })
         return ApiResult.error(502, str(exc))
     except httpx.HTTPError as exc:
-        logger.warning("ComfyUI HTTP 错误: %s", exc)
+        request_url = getattr(getattr(exc, "request", None), "url", "")
+        logger.warning(
+            "[%s] ComfyUI HTTP 错误: exc_type=%s url=%s exc=%r",
+            request_id,
+            type(exc).__name__,
+            request_url,
+            exc,
+        )
         log_request(request_id, {
             "mode": "convert",
             "status": "failed",
@@ -134,6 +141,8 @@ async def convert_to_psd(
             "size_bytes": len(image_bytes),
             "queue_wait_ms": round(queue_wait_ms, 1),
             "error": "调用 ComfyUI 失败",
+            "error_type": type(exc).__name__,
+            "error_url": str(request_url),
         })
         return ApiResult.error(502, "调用 ComfyUI 失败")
     except Exception:

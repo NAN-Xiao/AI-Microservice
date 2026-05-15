@@ -27,6 +27,23 @@ class ComfyQueueFullError(ComfyError):
 
 SAVE_PSD_NODE_ID = "21"
 SOURCE_PATH = "/api/see-through/convert"
+_HISTORY_PROGRESS_LOG_INTERVAL = 30.0
+
+
+def _elapsed_ms(started_at: float) -> float:
+    return (time.monotonic() - started_at) * 1000
+
+
+def _log_http_error(stage: str, url: str, exc: httpx.HTTPError, started_at: float, request_key: str) -> None:
+    logger.warning(
+        "[%s] ComfyUI HTTP 调用失败: stage=%s url=%s elapsed=%.1fms exc_type=%s exc=%r",
+        request_key,
+        stage,
+        url,
+        _elapsed_ms(started_at),
+        type(exc).__name__,
+        exc,
+    )
 
 
 def _load_workflow_template() -> dict[str, Any]:
@@ -183,21 +200,37 @@ async def convert_image_to_psd(
     timeout = settings.comfyui_timeout
     base_url = settings.comfyui_base_url
     request_key = _make_request_prefix(filename)
+    started_at = time.monotonic()
+    logger.info(
+        "[%s] 开始 SeeThrough 转换: filename=%s content_type=%s size=%s timeout=%ss comfyui=%s",
+        request_key,
+        filename,
+        content_type,
+        len(image_bytes),
+        timeout,
+        base_url,
+    )
 
     async with httpx.AsyncClient(timeout=timeout, headers=_llm_queue_headers(request_id)) as client:
         upload_name = await _upload_input_image(client, base_url, image_bytes, filename, content_type, request_key)
+        logger.info("[%s] ComfyUI 上传完成: upload_name=%s", request_key, upload_name)
         prompt_id = await _enqueue_prompt(client, base_url, upload_name, request_key)
+        logger.info("[%s] ComfyUI prompt 已提交: prompt_id=%s", request_key, prompt_id)
         history = await _wait_for_history(client, base_url, prompt_id, timeout)
+        logger.info("[%s] ComfyUI history 已完成: prompt_id=%s", request_key, prompt_id)
         history_files = _list_output_files(history)
         try:
             info_file = await _wait_for_request_info_file(client, base_url, request_key, timeout=15)
         except ComfyError:
+            logger.info("[%s] request layers.json 未直接可用，尝试从 history/legacy 输出定位", request_key)
             info_file = _pick_layers_info_output(history)
             if info_file is None:
                 info_file = await _wait_for_layers_info_file(client, base_url, request_key, timeout=15)
+        logger.info("[%s] layers.json 已定位: %s", request_key, info_file)
         layer_info = await _download_json(client, base_url, info_file)
         _validate_layer_info_request(layer_info, request_key)
         psd_file = _get_psd_output_file(layer_info, info_file)
+        logger.info("[%s] PSD 输出已定位: %s", request_key, psd_file)
         psd_bytes = await _download_file(client, base_url, psd_file)
         _validate_downloaded_psd(psd_bytes)
         output_name = _make_output_name(layer_info, filename)
@@ -211,6 +244,13 @@ async def convert_image_to_psd(
                 "directories": _collect_cleanup_directories(request_key),
                 "files": cleanup_targets,
             }
+        )
+        logger.info(
+            "[%s] SeeThrough 转换完成: output=%s output_size=%s elapsed=%.1fms",
+            request_key,
+            output_name,
+            len(psd_bytes),
+            _elapsed_ms(started_at),
         )
         return psd_bytes, output_name, cleanup_token
 
@@ -243,7 +283,15 @@ async def _upload_input_image(
         "subfolder": upload_subfolder,
         "overwrite": "false",
     }
-    resp = await client.post(f"{base_url}/upload/image", files=files, data=data)
+    url = f"{base_url}/upload/image"
+    started_at = time.monotonic()
+    logger.info("[%s] 调用 ComfyUI: stage=upload_image url=%s filename=%s bytes=%s", request_key, url, upload_filename, len(image_bytes))
+    try:
+        resp = await client.post(url, files=files, data=data)
+    except httpx.HTTPError as exc:
+        _log_http_error("upload_image", url, exc, started_at, request_key)
+        raise
+    logger.info("[%s] ComfyUI 响应: stage=upload_image status=%s elapsed=%.1fms", request_key, resp.status_code, _elapsed_ms(started_at))
     _raise_for_queue_full(resp)
     resp.raise_for_status()
 
@@ -271,7 +319,15 @@ async def _enqueue_prompt(
     payload: dict[str, Any] = {"prompt": workflow}
     payload["client_id"] = _make_client_id(filename_prefix)
 
-    resp = await client.post(f"{base_url}/prompt", json=payload)
+    url = f"{base_url}/prompt"
+    started_at = time.monotonic()
+    logger.info("[%s] 调用 ComfyUI: stage=enqueue_prompt url=%s client_id=%s", filename_prefix, url, payload["client_id"])
+    try:
+        resp = await client.post(url, json=payload)
+    except httpx.HTTPError as exc:
+        _log_http_error("enqueue_prompt", url, exc, started_at, filename_prefix)
+        raise
+    logger.info("[%s] ComfyUI 响应: stage=enqueue_prompt status=%s elapsed=%.1fms", filename_prefix, resp.status_code, _elapsed_ms(started_at))
     _raise_for_queue_full(resp)
     resp.raise_for_status()
 
@@ -291,13 +347,20 @@ async def _enqueue_prompt(
 
 async def _wait_for_history(client: httpx.AsyncClient, base_url: str, prompt_id: str, timeout: int) -> dict[str, Any]:
     start = time.monotonic()
+    last_progress_log = 0.0
+    url = f"{base_url}/history/{prompt_id}"
 
     while True:
         elapsed = time.monotonic() - start
         if elapsed > timeout:
             raise ComfyError(f"等待 ComfyUI 执行超时（>{timeout}s）")
 
-        resp = await client.get(f"{base_url}/history/{prompt_id}")
+        request_started = time.monotonic()
+        try:
+            resp = await client.get(url)
+        except httpx.HTTPError as exc:
+            _log_http_error("wait_history", url, exc, request_started, prompt_id)
+            raise
         _raise_for_queue_full(resp)
         resp.raise_for_status()
 
@@ -311,6 +374,16 @@ async def _wait_for_history(client: httpx.AsyncClient, base_url: str, prompt_id:
                     messages = status.get("messages") or []
                     raise ComfyError(f"ComfyUI 工作流执行失败: {messages}")
             return result
+
+        if elapsed - last_progress_log >= _HISTORY_PROGRESS_LOG_INTERVAL:
+            logger.info(
+                "[%s] 等待 ComfyUI history: elapsed=%.1fs timeout=%ss status=%s",
+                prompt_id,
+                elapsed,
+                timeout,
+                resp.status_code,
+            )
+            last_progress_log = elapsed
 
         await asyncio_sleep(settings.comfyui_poll_interval)
 
@@ -326,7 +399,21 @@ async def _download_file(client: httpx.AsyncClient, base_url: str, output_file: 
         "subfolder": normalized["subfolder"],
         "type": normalized["type"],
     }
-    resp = await client.get(f"{base_url}/view", params=params)
+    url = f"{base_url}/view"
+    started_at = time.monotonic()
+    logger.info("[%s] 调用 ComfyUI: stage=download_file url=%s params=%s", normalized["filename"], url, params)
+    try:
+        resp = await client.get(url, params=params)
+    except httpx.HTTPError as exc:
+        _log_http_error("download_file", url, exc, started_at, normalized["filename"])
+        raise
+    logger.info(
+        "[%s] ComfyUI 响应: stage=download_file status=%s bytes=%s elapsed=%.1fms",
+        normalized["filename"],
+        resp.status_code,
+        len(resp.content or b""),
+        _elapsed_ms(started_at),
+    )
     _raise_for_queue_full(resp)
     resp.raise_for_status()
     if not resp.content:
@@ -473,7 +560,8 @@ async def _wait_for_layers_info_file(
             for name in listed:
                 if _basename_matches_prefix(name, request_key):
                     return _normalize_output_file(name)
-        except Exception:
+        except Exception as exc:
+            logger.debug("[%s] 列出 ComfyUI output 目录失败: exc_type=%s exc=%r", request_key, type(exc).__name__, exc)
             pass
 
         for log_file in legacy_logs:
@@ -482,7 +570,14 @@ async def _wait_for_layers_info_file(
                 info_filename = content.decode("utf-8").strip()
                 if _basename_matches_prefix(info_filename, request_key):
                     return _normalize_output_file(info_filename)
-            except Exception:
+            except Exception as exc:
+                logger.debug(
+                    "[%s] 读取 legacy layers 定位文件失败: file=%s exc_type=%s exc=%r",
+                    request_key,
+                    log_file,
+                    type(exc).__name__,
+                    exc,
+                )
                 continue
 
         await asyncio_sleep(0.5)
@@ -505,7 +600,8 @@ async def _wait_for_request_info_file(
             payload = await _download_json(client, base_url, info_file)
             if str(payload.get("request_key") or payload.get("prefix") or "") == request_key:
                 return info_file
-        except Exception:
+        except Exception as exc:
+            logger.debug("[%s] request layers.json 暂不可用: file=%s exc_type=%s exc=%r", request_key, info_file, type(exc).__name__, exc)
             pass
 
         await asyncio_sleep(0.5)
@@ -531,11 +627,14 @@ def _raise_for_queue_full(resp: httpx.Response) -> None:
 
 async def _list_output_directory_files(client: httpx.AsyncClient, base_url: str) -> list[str]:
     for path in ("/internal/files/output", "/api/internal/files/output"):
+        url = f"{base_url}{path}"
+        started_at = time.monotonic()
         try:
-            resp = await client.get(f"{base_url}{path}")
+            resp = await client.get(url)
             resp.raise_for_status()
             payload = resp.json()
             if not isinstance(payload, list):
+                logger.debug("ComfyUI output 列表格式异常: url=%s payload_type=%s", url, type(payload).__name__)
                 continue
 
             names: list[str] = []
@@ -546,7 +645,9 @@ async def _list_output_directory_files(client: httpx.AsyncClient, base_url: str)
                     names.append(item[:-9])
                 else:
                     names.append(item)
+            logger.debug("ComfyUI output 列表读取完成: url=%s count=%s elapsed=%.1fms", url, len(names), _elapsed_ms(started_at))
             return names
-        except Exception:
+        except Exception as exc:
+            logger.debug("ComfyUI output 列表读取失败: url=%s exc_type=%s exc=%r", url, type(exc).__name__, exc)
             continue
     return []
