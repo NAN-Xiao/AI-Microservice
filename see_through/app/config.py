@@ -74,7 +74,7 @@ def _build_settings() -> "Settings":
     service_name = str(_section_get(c, "service", "name", "see_through"))
 
     comfyui_base_url = str(_from_env("COMFYUI_BASE_URL", _section_get(c, "comfyui", "base_url", ""))).rstrip("/")
-    comfyui_timeout = _from_env("COMFYUI_TIMEOUT", _section_get(c, "comfyui", "timeout_seconds", 300), int)
+    comfyui_timeout = _from_env("COMFYUI_TIMEOUT", _section_get(c, "comfyui", "timeout_seconds", 600), int)
     comfyui_poll_interval = _from_env("COMFYUI_POLL_INTERVAL", _section_get(c, "comfyui", "poll_interval_seconds", 1), float)
     comfyui_concurrency = _from_env("COMFYUI_CONCURRENCY", _section_get(c, "comfyui", "concurrency", 0), int)
     workflow_path = str(_from_env("COMFYUI_WORKFLOW_PATH", _section_get(c, "comfyui", "workflow_path", "resources/workflow.json")))

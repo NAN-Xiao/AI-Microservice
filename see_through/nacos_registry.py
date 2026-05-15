@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 def _detect_local_ip() -> str:
+    """自动检测本机局域网 IP，失败时回退到 127.0.0.1。"""
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("8.8.8.8", 80))
@@ -19,6 +20,8 @@ def _detect_local_ip() -> str:
 
 
 class NacosRegistry:
+    """Nacos 服务注册客户端。"""
+
     def __init__(
         self,
         service_name: str,
@@ -50,8 +53,9 @@ class NacosRegistry:
         self._client: Optional[httpx.AsyncClient] = None
 
     async def register(self) -> bool:
+        """注册服务实例到 Nacos，并启动心跳。"""
         if not self.enabled:
-            logger.info("Nacos registration disabled")
+            logger.info("Nacos 注册已禁用")
             return False
 
         self._client = httpx.AsyncClient(timeout=10)
@@ -74,7 +78,15 @@ class NacosRegistry:
             resp = await self._client.post(f"{self._base_url}/instance", params=params)
             ok = resp.status_code == 200 and resp.text.strip() == "ok"
             if ok:
-                logger.info("Nacos 注册成功: %s -> %s:%s", self.service_name, self.service_ip, self.service_port)
+                logger.info(
+                    "Nacos 注册成功: %s -> %s:%s (server=%s, ns=%s, group=%s)",
+                    self.service_name,
+                    self.service_ip,
+                    self.service_port,
+                    self.server_addr,
+                    self.namespace or "public",
+                    self.group,
+                )
                 self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
                 return True
             logger.error("Nacos 注册失败: status=%s body=%s", resp.status_code, resp.text)
@@ -84,6 +96,7 @@ class NacosRegistry:
             return False
 
     async def deregister(self) -> bool:
+        """从 Nacos 注销服务实例，并停止心跳。"""
         if not self.enabled or self._client is None:
             return False
 
@@ -110,7 +123,13 @@ class NacosRegistry:
 
         try:
             resp = await self._client.delete(f"{self._base_url}/instance", params=params)
-            logger.info("Nacos 注销完成: %s", resp.text.strip())
+            logger.info(
+                "Nacos 注销完成: %s -> %s:%s (result=%s)",
+                self.service_name,
+                self.service_ip,
+                self.service_port,
+                resp.text.strip(),
+            )
             return resp.status_code == 200
         except Exception as exc:
             logger.error("Nacos 注销异常: %s", exc)
@@ -119,7 +138,7 @@ class NacosRegistry:
             await self._client.aclose()
             self._client = None
 
-    async def _heartbeat_loop(self):
+    async def _heartbeat_loop(self) -> None:
         beat_info = json.dumps(
             {
                 "serviceName": self.service_name,
@@ -147,10 +166,14 @@ class NacosRegistry:
                     params["username"] = self.username
                     params["password"] = self.password
 
+                if self._client is None:
+                    logger.warning("Nacos 心跳客户端未初始化")
+                    return
                 resp = await self._client.put(f"{self._base_url}/instance/beat", params=params)
                 if resp.status_code != 200:
-                    logger.warning("Nacos 心跳失败: %s", resp.status_code)
+                    logger.warning("Nacos 心跳失败: status=%s body=%s", resp.status_code, resp.text)
             except asyncio.CancelledError:
+                logger.debug("Nacos 心跳已停止")
                 raise
             except Exception as exc:
                 logger.warning("Nacos 心跳异常: %s", exc)

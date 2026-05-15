@@ -25,6 +25,7 @@ __pycache__/
 ui_builder/settings.yaml
 video_analyze/settings.yaml
 see_through/settings.yaml
+ai_rembg/settings.yaml
 
 # OS
 .DS_Store

@@ -1,0 +1,19 @@
+server:
+  port: 8091
+
+llm:
+  queue:
+    target-base-url: http://127.0.0.1:8000
+    capacity: 2
+    request-timeout: 15m
+    upstream-timeout: 15m
+    history-poll-interval: 1s
+    max-in-memory-size: 104857600
+    queued-paths:
+      - /prompt
+      - /promot
+      - /api/see-through/convert
+    async-task-paths:
+      - /prompt
+      - /promot
+    history-path: /history
