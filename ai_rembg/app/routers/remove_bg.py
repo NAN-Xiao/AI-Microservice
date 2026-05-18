@@ -9,11 +9,11 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app.config import settings
 from app.models.response import ApiResult
-from app.services.comfy_client import ComfyError, remove_background
+from app.services.comfy_client import ComfyError, ComfyQueueFullError, remove_background
 from app.services.result_store import cleanup_by_token
 from app.utils.logger import log_request
 
@@ -23,6 +23,13 @@ router = APIRouter(prefix="/api/ai-rembg", tags=["AI RMBG"])
 
 MAX_IMAGE_SIZE = 30 * 1024 * 1024
 _comfy_semaphore: asyncio.Semaphore | None = None
+
+
+def _api_error(status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=ApiResult.error(status_code, message).dict(),
+    )
 
 
 def _get_comfy_semaphore() -> asyncio.Semaphore | None:
@@ -70,7 +77,7 @@ async def remove_background_api(
                 "error": f"仅支持图片文件，当前类型: {image.content_type}",
             },
         )
-        return ApiResult.error(400, f"仅支持图片文件，当前类型: {image.content_type}")
+        return _api_error(400, f"仅支持图片文件，当前类型: {image.content_type}")
 
     image_bytes = await image.read()
     if not image_bytes:
@@ -84,7 +91,7 @@ async def remove_background_api(
                 "error": "图片内容为空",
             },
         )
-        return ApiResult.error(400, "图片内容为空")
+        return _api_error(400, "图片内容为空")
 
     if len(image_bytes) > MAX_IMAGE_SIZE:
         log_request(
@@ -98,7 +105,7 @@ async def remove_background_api(
                 "error": f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB",
             },
         )
-        return ApiResult.error(400, f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB")
+        return _api_error(400, f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB")
 
     filename = image.filename or "input.png"
     queue_wait_ms = 0.0
@@ -110,6 +117,21 @@ async def remove_background_api(
                 filename,
                 image.content_type,
             )
+    except ComfyQueueFullError as exc:
+        logger.warning("AI RMBG 队列已满: %s", exc)
+        log_request(
+            request_id,
+            {
+                "mode": "remove_background",
+                "status": "failed",
+                "filename": filename,
+                "content_type": image.content_type,
+                "size_bytes": len(image_bytes),
+                "queue_wait_ms": round(queue_wait_ms, 1),
+                "error": str(exc),
+            },
+        )
+        return _api_error(429, str(exc))
     except ComfyError as exc:
         logger.warning("扣背景失败: %s", exc)
         log_request(
@@ -124,7 +146,7 @@ async def remove_background_api(
                 "error": str(exc),
             },
         )
-        return ApiResult.error(502, str(exc))
+        return _api_error(502, str(exc))
     except httpx.HTTPError as exc:
         logger.warning("ComfyUI HTTP 错误: %s", exc)
         log_request(
@@ -139,7 +161,7 @@ async def remove_background_api(
                 "error": "调用 ComfyUI 失败",
             },
         )
-        return ApiResult.error(502, "调用 ComfyUI 失败")
+        return _api_error(502, "调用 ComfyUI 失败")
     except Exception:
         logger.exception("扣背景异常")
         log_request(
@@ -154,7 +176,7 @@ async def remove_background_api(
                 "error": "扣背景失败，请稍后重试",
             },
         )
-        return ApiResult.error(500, "扣背景失败，请稍后重试")
+        return _api_error(500, "扣背景失败，请稍后重试")
 
     safe_name = Path(output_name).name
     if not safe_name.lower().endswith(".png"):

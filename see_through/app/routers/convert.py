@@ -7,7 +7,7 @@ from pathlib import Path
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 
 from app.config import settings
 from app.models.response import ApiResult
@@ -21,6 +21,13 @@ router = APIRouter(prefix="/api/see-through", tags=["See Through"])
 
 MAX_IMAGE_SIZE = 30 * 1024 * 1024
 _comfy_semaphore: asyncio.Semaphore | None = None
+
+
+def _api_error(status_code: int, message: str) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=ApiResult.error(status_code, message).dict(),
+    )
 
 
 def _get_comfy_semaphore() -> asyncio.Semaphore | None:
@@ -65,7 +72,7 @@ async def convert_to_psd(
             "content_type": image.content_type,
             "error": f"仅支持图片文件，当前类型: {image.content_type}",
         })
-        return ApiResult.error(400, f"仅支持图片文件，当前类型: {image.content_type}")
+        return _api_error(400, f"仅支持图片文件，当前类型: {image.content_type}")
 
     image_bytes = await image.read()
     if not image_bytes:
@@ -76,7 +83,7 @@ async def convert_to_psd(
             "content_type": image.content_type,
             "error": "图片内容为空",
         })
-        return ApiResult.error(400, "图片内容为空")
+        return _api_error(400, "图片内容为空")
 
     if len(image_bytes) > MAX_IMAGE_SIZE:
         log_request(request_id, {
@@ -87,7 +94,7 @@ async def convert_to_psd(
             "size_bytes": len(image_bytes),
             "error": f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB",
         })
-        return ApiResult.error(400, f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB")
+        return _api_error(400, f"图片过大，最大 {MAX_IMAGE_SIZE // (1024 * 1024)} MB")
 
     filename = image.filename or "input.png"
     queue_wait_ms = 0.0
@@ -111,7 +118,7 @@ async def convert_to_psd(
             "queue_wait_ms": round(queue_wait_ms, 1),
             "error": str(exc),
         })
-        return ApiResult.error(429, str(exc))
+        return _api_error(429, str(exc))
     except ComfyError as exc:
         logger.warning("转换失败: %s", exc)
         log_request(request_id, {
@@ -123,7 +130,7 @@ async def convert_to_psd(
             "queue_wait_ms": round(queue_wait_ms, 1),
             "error": str(exc),
         })
-        return ApiResult.error(502, str(exc))
+        return _api_error(502, str(exc))
     except httpx.HTTPError as exc:
         request_url = getattr(getattr(exc, "request", None), "url", "")
         logger.warning(
@@ -144,7 +151,7 @@ async def convert_to_psd(
             "error_type": type(exc).__name__,
             "error_url": str(request_url),
         })
-        return ApiResult.error(502, "调用 ComfyUI 失败")
+        return _api_error(502, "调用 ComfyUI 失败")
     except Exception:
         logger.exception("转换异常")
         log_request(request_id, {
@@ -156,7 +163,7 @@ async def convert_to_psd(
             "queue_wait_ms": round(queue_wait_ms, 1),
             "error": "转换失败，请稍后重试",
         })
-        return ApiResult.error(500, "转换失败，请稍后重试")
+        return _api_error(500, "转换失败，请稍后重试")
 
     safe_name = Path(psd_name).name
     if not safe_name.lower().endswith(".psd"):

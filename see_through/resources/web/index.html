@@ -188,7 +188,6 @@
     const statusEl = document.getElementById("status");
     let phase = "upload";
     let downloadState = null;
-    let healthTimer = null;
     let activeTaskId = "";
     let activeAbortController = null;
     const canUseNativeSavePicker = Boolean(
@@ -213,8 +212,21 @@
 
     function parseErrorMessage(status, text) {
       const body = text || "";
-      if (status === 503 && (body.includes("TASK_BUSY") || body.includes("任务繁忙"))) {
-        return "队列已满，请稍后再尝试";
+      let message = "";
+      try {
+        const payload = JSON.parse(body);
+        message = String(payload?.message || payload?.error || "");
+      } catch (_) {}
+      if (
+        body.includes("TASK_BUSY")
+        || body.includes("任务繁忙")
+        || body.includes("队列已满")
+        || body.includes("queue is full")
+      ) {
+        return "队列已满，请等待";
+      }
+      if (message) {
+        return `处理失败：${message}`;
       }
       return `处理失败：HTTP ${status} ${body}`;
     }
@@ -493,7 +505,6 @@
     });
 
     checkHealth();
-    healthTimer = window.setInterval(checkHealth, 5000);
     window.addEventListener("pagehide", cancelActiveTask);
     window.addEventListener("beforeunload", cancelActiveTask);
   </script>

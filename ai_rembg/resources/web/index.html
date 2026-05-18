@@ -179,7 +179,6 @@
     const statusEl = document.getElementById("status");
     let phase = "upload";
     let downloadState = null;
-    let healthTimer = null;
     const canUseNativeSavePicker = Boolean(
       window.showSaveFilePicker &&
       window.isSecureContext &&
@@ -236,8 +235,21 @@
 
     function parseErrorMessage(status, text) {
       const body = text || "";
-      if (status === 503 && (body.includes("TASK_BUSY") || body.includes("任务繁忙") || body.includes("queue"))) {
-        return "ComfyUI 队列已满，请稍后再尝试";
+      let message = "";
+      try {
+        const payload = JSON.parse(body);
+        message = String(payload?.message || payload?.error || "");
+      } catch (_) {}
+      if (
+        body.includes("TASK_BUSY")
+        || body.includes("任务繁忙")
+        || body.includes("队列已满")
+        || body.includes("queue is full")
+      ) {
+        return "队列已满，请等待";
+      }
+      if (message) {
+        return `处理失败：${message}`;
       }
       if (status === 502) {
         return `ComfyUI 服务错误：${body}`;
@@ -355,7 +367,9 @@
           body: formData
         });
 
-        if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        const isPngResponse = contentType.includes("image/png");
+        if (!res.ok || !isPngResponse) {
           const text = await res.text();
           setStatus(parseErrorMessage(res.status, text), "error");
           resetDownloadState();
@@ -391,7 +405,6 @@
     });
 
     checkHealth();
-    healthTimer = window.setInterval(checkHealth, 5000);
 
     window.addEventListener("beforeunload", (event) => {
       if (phase === "processing") {

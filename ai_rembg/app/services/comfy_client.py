@@ -20,6 +20,10 @@ class ComfyError(Exception):
     pass
 
 
+class ComfyQueueFullError(ComfyError):
+    pass
+
+
 def _load_workflow_template() -> dict[str, Any]:
     workflow_file = PROJECT_ROOT / settings.workflow_path
     if not workflow_file.is_file():
@@ -180,6 +184,7 @@ async def _upload_input_image(
         "overwrite": "false",
     }
     resp = await client.post(f"{base_url}/upload/image", files=files, data=data)
+    _raise_for_queue_full(resp)
     resp.raise_for_status()
 
     payload = resp.json()
@@ -213,6 +218,7 @@ async def _enqueue_prompt(
         json=payload,
         headers={"llm_queue_request": "1"},
     )
+    _raise_for_queue_full(resp)
     resp.raise_for_status()
 
     data = resp.json()
@@ -238,6 +244,7 @@ async def _wait_for_history(client: httpx.AsyncClient, base_url: str, prompt_id:
             raise ComfyError(f"等待 ComfyUI 执行超时（>{timeout}s）")
 
         resp = await client.get(f"{base_url}/history/{prompt_id}")
+        _raise_for_queue_full(resp)
         resp.raise_for_status()
 
         data = resp.json()
@@ -266,6 +273,7 @@ async def _download_file(client: httpx.AsyncClient, base_url: str, output_file: 
         "type": normalized["type"],
     }
     resp = await client.get(f"{base_url}/view", params=params)
+    _raise_for_queue_full(resp)
     resp.raise_for_status()
     if not resp.content:
         raise ComfyError("ComfyUI 返回空文件")
@@ -343,3 +351,15 @@ async def asyncio_sleep(seconds: float) -> None:
     import asyncio
 
     await asyncio.sleep(seconds)
+
+
+def _raise_for_queue_full(resp: httpx.Response) -> None:
+    if resp.status_code != 429:
+        return
+    try:
+        payload = resp.json()
+    except Exception:
+        payload = {}
+    message = payload.get("error") if isinstance(payload, dict) else ""
+    if str(message).strip().lower() == "queue is full":
+        raise ComfyQueueFullError("队列已满，请等待")
