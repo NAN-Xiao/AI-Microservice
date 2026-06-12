@@ -225,6 +225,9 @@
       ) {
         return "队列已满，请等待";
       }
+      if (message === "network error" || message === "net error" || message === "调用 ComfyUI 失败" || body.includes("调用 ComfyUI 失败")) {
+        return "network error";
+      }
       if (message) {
         return `处理失败：${message}`;
       }
@@ -491,7 +494,7 @@
         if (error && error.name === "AbortError") {
           setStatus("任务已取消。", "error");
         } else {
-          setStatus(`处理失败：${error.message}`, "error");
+          setStatus("network error", "error");
         }
         activeTaskId = "";
         activeAbortController = null;

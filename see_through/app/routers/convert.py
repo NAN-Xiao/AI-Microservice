@@ -147,11 +147,11 @@ async def convert_to_psd(
             "content_type": image.content_type,
             "size_bytes": len(image_bytes),
             "queue_wait_ms": round(queue_wait_ms, 1),
-            "error": "调用 ComfyUI 失败",
+            "error": "network error",
             "error_type": type(exc).__name__,
             "error_url": str(request_url),
         })
-        return _api_error(502, "调用 ComfyUI 失败")
+        return _api_error(502, "network error")
     except Exception:
         logger.exception("转换异常")
         log_request(request_id, {

@@ -248,6 +248,9 @@
       ) {
         return "队列已满，请等待";
       }
+      if (message === "network error" || message === "net error" || message === "调用 ComfyUI 失败" || body.includes("调用 ComfyUI 失败")) {
+        return "network error";
+      }
       if (message) {
         return `处理失败：${message}`;
       }
@@ -394,7 +397,7 @@
         downloadState = { blob, filename, cleanupToken };
         setReadyToDownloadState();
       } catch (error) {
-        setStatus(`处理失败：${error.message || error}`, "error");
+        setStatus("network error", "error");
         resetDownloadState();
       }
     });
