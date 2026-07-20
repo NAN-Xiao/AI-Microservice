@@ -6,6 +6,7 @@ import logging
 import time
 import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, File, Request, UploadFile
@@ -181,6 +182,12 @@ async def remove_background_api(
     safe_name = Path(output_name).name
     if not safe_name.lower().endswith(".png"):
         safe_name = f"{Path(filename).stem}_removebg.png"
+    encoded_name = quote(safe_name, safe="")
+    fallback_name = safe_name if safe_name.isascii() else "removebg.png"
+    content_disposition = (
+        f'attachment; filename="{fallback_name}"; '
+        f"filename*=UTF-8''{encoded_name}"
+    )
 
     log_request(
         request_id,
@@ -202,7 +209,7 @@ async def remove_background_api(
         content=output_bytes,
         media_type="image/png",
         headers={
-            "Content-Disposition": f'attachment; filename="{safe_name}"',
+            "Content-Disposition": content_disposition,
             "X-Cleanup-Token": cleanup_token,
             "X-Content-Type-Options": "nosniff",
         },
