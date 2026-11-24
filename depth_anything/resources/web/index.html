@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Depth Anything 3 - 视频转深度</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px; color: #1f2937; }
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; }
+    button { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; cursor: pointer; font-size: 14px; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #status { margin-top: 12px; font-size: 14px; color: #4b5563; }
+    video { margin-top: 16px; width: 100%; border-radius: 8px; display: none; }
+    a#download { display: none; margin-top: 12px; color: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Depth Anything 3 - 视频深度转换（最长 30 秒）</h2>
+    <input type="file" id="fileInput" accept="video/*" />
+    <button id="submitBtn">开始转换</button>
+    <div id="status"></div>
+    <video id="preview" controls></video>
+    <a id="download" download="depth.mp4">下载深度视频</a>
+  </div>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const statusEl = document.getElementById('status');
+    const preview = document.getElementById('preview');
+    const downloadLink = document.getElementById('download');
+
+    submitBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) { statusEl.textContent = '请先选择视频文件'; return; }
+      submitBtn.disabled = true;
+      statusEl.textContent = '正在上传并生成深度视频，请稍候...';
+      preview.style.display = 'none';
+      downloadLink.style.display = 'none';
+      try {
+        const form = new FormData();
+        form.append('video', file);
+        const resp = await fetch('/api/depth-anything/video-depth', { method: 'POST', body: form });
+        if (!resp.ok) {
+          const text = await resp.text();
+          throw new Error(text || ('HTTP ' + resp.status));
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        preview.src = url;
+        preview.style.display = 'block';
+        downloadLink.href = url;
+        downloadLink.download = file.name.replace(/\.[^.]+$/, '') + '_depth.mp4';
+        downloadLink.style.display = 'inline-block';
+        statusEl.textContent = '转换完成';
+      } catch (err) {
+        statusEl.textContent = '转换失败: ' + err.message;
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

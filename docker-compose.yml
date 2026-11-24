@@ -171,6 +171,39 @@ services:
     networks:
       - ai-net
 
+  # ---------- Depth Anything ----------
+  depth-anything:
+    build:
+      context: ./depth_anything
+      dockerfile: Dockerfile
+    container_name: depth-anything
+    restart: unless-stopped
+    ports:
+      - "9006:9006"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9006
+      - DEBUG=false
+      - LOG_TO_FILE=true
+      - COMFYUI_BASE_URL=${DEPTH_ANYTHING_COMFYUI_BASE_URL:-http://10.1.5.194:8080/proxy}
+      - COMFYUI_TIMEOUT=900
+      - COMFYUI_POLL_INTERVAL=1
+      - AUTH_TOKENS=${AUTH_TOKENS:-}
+      - NACOS_SERVER_ADDR=nacos:8848
+    volumes:
+      - ./depth_anything/logs:/app/logs
+    depends_on:
+      nacos:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9006/api/depth-anything/health/live')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - ai-net
+
   # ==================== 反向代理 ====================
 
   nginx:
@@ -192,6 +225,8 @@ services:
       image2psd:
         condition: service_healthy
       see-through:
+        condition: service_healthy
+      depth-anything:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1/nginx-health"]

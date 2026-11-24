@@ -32,7 +32,7 @@ Directory cleanup:
 }
 ```
 
-The route deletes only `seethrough/requests/*` directories inside ComfyUI `input`, `output`, or `temp` roots and refuses the base directory itself.
+The route deletes only `seethrough/requests/*` and `depth_anything/requests/*` directories inside ComfyUI `input`, `output`, or `temp` roots and refuses the base directory itself.
 
 Install:
 

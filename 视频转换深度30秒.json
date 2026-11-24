@@ -1,0 +1,572 @@
+{
+  "id": "a930dd81-7cb1-4bf6-9cc3-a15f84053894",
+  "revision": 0,
+  "last_node_id": 109,
+  "last_link_id": 136,
+  "nodes": [
+    {
+      "id": 100,
+      "type": "DA3Inference",
+      "pos": [
+        -1230,
+        5630
+      ],
+      "size": [
+        390,
+        126
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "da3_model",
+          "type": "DA3_MODEL",
+          "link": 131
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 132
+        }
+      ],
+      "outputs": [
+        {
+          "name": "da3_geometry",
+          "type": "DA3_GEOMETRY",
+          "slot_index": 0,
+          "links": [
+            130
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DA3Inference",
+        "cnr_id": "comfy-core",
+        "ver": "0.19.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        770,
+        "lower_bound_resize",
+        "mono"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 102,
+      "type": "GetVideoComponents",
+      "pos": [
+        -1560,
+        5650
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 133
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            132
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": []
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": []
+        },
+        {
+          "name": "bit_depth",
+          "type": "INT",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetVideoComponents",
+        "cnr_id": "comfy-core",
+        "ver": "0.24.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 99,
+      "type": "DA3Render",
+      "pos": [
+        -1222.7527851145087,
+        5809.354190398696
+      ],
+      "size": [
+        380,
+        126
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "da3_geometry",
+          "type": "DA3_GEOMETRY",
+          "link": 130
+        },
+        {
+          "name": "geometry",
+          "type": "DA3_GEOMETRY",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            135
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "DA3Render",
+        "cnr_id": "comfy-core",
+        "ver": "0.19.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        "depth",
+        "v2_style",
+        false
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 101,
+      "type": "LoadDA3Model",
+      "pos": [
+        -1868.334864478594,
+        5872.617082467886
+      ],
+      "size": [
+        400,
+        140
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "DA3_MODEL",
+          "type": "DA3_MODEL",
+          "links": [
+            131
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadDA3Model",
+        "cnr_id": "comfy-core",
+        "ver": "0.24.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "models": [
+          {
+            "name": "depth_anything_3_mono_large.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Depth-Anything-3/resolve/main/geometry_estimation/depth_anything_3_mono_large.safetensors",
+            "directory": "geometry_estimation"
+          }
+        ]
+      },
+      "widgets_values": [
+        "depth_anything_3_mono_large.safetensors",
+        "default"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 103,
+      "type": "Video Slice",
+      "pos": [
+        -1857.177737299128,
+        5654.228838154338
+      ],
+      "size": [
+        270,
+        170
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 136
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            133
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "Video Slice",
+        "cnr_id": "comfy-core",
+        "ver": "0.24.0",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": [
+        0,
+        30,
+        false
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 109,
+      "type": "LoadVideo",
+      "pos": [
+        -2337.583411036572,
+        5651.863478940227
+      ],
+      "size": [
+        380,
+        748.5
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            136
+          ]
+        }
+      ],
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        },
+        "Node name for S&R": "LoadVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.32.0"
+      },
+      "widgets_values": [
+        "10月9日(1).mp4",
+        "image"
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 108,
+      "type": "Note",
+      "pos": [
+        -2331.8723159556694,
+        5428.700453604055
+      ],
+      "size": [
+        210,
+        88
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "version": "7.8",
+          "input_ue_unconnectable": {}
+        }
+      },
+      "widgets_values": [
+        "视频转换深度15秒"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 105,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        -799.7946723464453,
+        5625.140299283255
+      ],
+      "size": [
+        389.9407055672398,
+        505.1429545772346
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "label": "图像",
+          "name": "images",
+          "type": "IMAGE",
+          "link": 135
+        },
+        {
+          "label": "音频",
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "label": "批次管理",
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        },
+        {
+          "label": "帧率",
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "widget": {
+            "name": "frame_rate"
+          },
+          "link": null
+        },
+        {
+          "label": "循环次数",
+          "name": "loop_count",
+          "type": "INT",
+          "widget": {
+            "name": "loop_count"
+          },
+          "link": null
+        },
+        {
+          "label": "文件名前缀",
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "label": "格式",
+          "name": "format",
+          "type": "COMBO",
+          "widget": {
+            "name": "format"
+          },
+          "link": null
+        },
+        {
+          "label": "Ping-Pong",
+          "name": "pingpong",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "pingpong"
+          },
+          "link": null
+        },
+        {
+          "label": "保存到输出文件夹",
+          "name": "save_output",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_output"
+          },
+          "link": null
+        },
+        {
+          "label": "保存元数据",
+          "name": "save_metadata",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "save_metadata"
+          },
+          "link": null
+        },
+        {
+          "label": "修剪音频",
+          "name": "trim_to_audio",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "trim_to_audio"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "label": "文件名",
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "title": "合并为视频",
+      "properties": {
+        "Node name for S&R": "VHS_VideoCombine",
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "4ee72c065db22c9d96c2427954dc69e7b908444b",
+        "ue_properties": {
+          "widget_ue_connectable": {},
+          "input_ue_unconnectable": {},
+          "version": "7.8"
+        }
+      },
+      "widgets_values": {
+        "frame_rate": 30,
+        "loop_count": 0,
+        "filename_prefix": "depth_video",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": false,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "depth_video_00006.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 30,
+            "workflow": "depth_video_00006.png",
+            "fullpath": "D:\\ComfyUI\\output\\depth_video_00006.mp4"
+          }
+        }
+      },
+      "color": "#232",
+      "bgcolor": "#353"
+    }
+  ],
+  "links": [
+    [
+      130,
+      100,
+      0,
+      99,
+      0,
+      "DA3_GEOMETRY"
+    ],
+    [
+      131,
+      101,
+      0,
+      100,
+      0,
+      "DA3_MODEL"
+    ],
+    [
+      132,
+      102,
+      0,
+      100,
+      1,
+      "IMAGE"
+    ],
+    [
+      133,
+      103,
+      0,
+      102,
+      0,
+      "VIDEO"
+    ],
+    [
+      135,
+      99,
+      0,
+      105,
+      0,
+      "IMAGE"
+    ],
+    [
+      136,
+      109,
+      0,
+      103,
+      0,
+      "VIDEO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ue_links": [],
+    "links_added_by_ue": [],
+    "ds": {
+      "scale": 0.5559917313492266,
+      "offset": [
+        3601.620713194113,
+        -4891.812847372076
+      ]
+    },
+    "anomalous_hashes": {},
+    "frontendVersion": "1.48.7",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

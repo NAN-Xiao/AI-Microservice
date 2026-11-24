@@ -40,9 +40,15 @@ def _safe_join_base(base_dir: str, *parts: str) -> str | None:
     return target_path
 
 
+_ALLOWED_CLEANUP_PREFIXES: Final[tuple[str, ...]] = (
+    "seethrough/requests/",
+    "depth_anything/requests/",
+)
+
+
 def _is_allowed_cleanup_subfolder(subfolder: str) -> bool:
     normalized = subfolder.replace("\\", "/").strip("/")
-    return normalized.startswith("seethrough/requests/")
+    return any(normalized.startswith(prefix) for prefix in _ALLOWED_CLEANUP_PREFIXES)
 
 
 @routes.post("/delete")

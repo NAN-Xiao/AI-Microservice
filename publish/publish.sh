@@ -8,8 +8,8 @@
 #   ./publish.sh ui_builder         # 只发布 ui_builder
 #   ./publish.sh video_analyze      # 只发布 video_analyze
 #   ./publish.sh see_through        # 只发布 see_through
-#   ./publish.sh ai_rembg           # 只发布 ai_rembg
-#   ./publish.sh ui_builder video_analyze see_through ai_rembg # 发布多个指定服务
+#   ./publish.sh depth_anything     # 只发布 depth_anything
+#   ./publish.sh ui_builder video_analyze see_through depth_anything # 发布多个指定服务
 #
 # 选项（环境变量）:
 #   REMOTE_PASS=xxx ./publish.sh   # 非交互模式（CI/脚本调用）
@@ -116,8 +116,9 @@ get_service_port() {
     case "$1" in
         ui_builder)    echo "9002" ;;
         video_analyze) echo "9001" ;;
-        see_through)   echo "9004" ;;
-        ai_rembg)      echo "9005" ;;
+        see_through)    echo "9004" ;;
+        depth_anything) echo "9006" ;;
+        ai_rembg)       echo "9005" ;;
         *)             echo ""     ;;
     esac
 }
@@ -220,8 +221,9 @@ publish_python_service() {
 
 publish_ui_builder()    { publish_python_service "ui_builder";    }
 publish_video_analyze() { publish_python_service "video_analyze"; }
-publish_see_through()   { publish_python_service "see_through";   }
-publish_ai_rembg()      { publish_python_service "ai_rembg";      }
+publish_see_through()    { publish_python_service "see_through";    }
+publish_depth_anything() { publish_python_service "depth_anything"; }
+publish_ai_rembg()       { publish_python_service "ai_rembg";       }
 
 # ── 健康检查 ───────────────────────────────────────────────────
 health_check() {
@@ -231,7 +233,7 @@ health_check() {
         "ui_builder|9002|http://127.0.0.1:9002/api/ui-builder/health"
         "video_analyze|9001|http://127.0.0.1:9001/api/video-analyze/health"
         "see_through|9004|http://127.0.0.1:9004/api/see-through/health"
-        "ai_rembg|9005|http://127.0.0.1:9005/api/ai-rembg/health"
+        "depth_anything|9006|http://127.0.0.1:9006/api/depth-anything/health"
     )
     for check in "${checks[@]}"; do
         IFS='|' read -r name port url <<< "${check}"
@@ -267,17 +269,18 @@ main() {
 
     local targets=("$@")
     if [ ${#targets[@]} -eq 0 ]; then
-        targets=("ui_builder" "video_analyze" "see_through" "ai_rembg")
+        targets=("ui_builder" "video_analyze" "see_through" "depth_anything")
     fi
 
     for target in "${targets[@]}"; do
         case "${target}" in
-            ui_builder)    publish_ui_builder    ;;
-            video_analyze) publish_video_analyze ;;
-            see_through)   publish_see_through   ;;
-            ai_rembg)      publish_ai_rembg      ;;
+            ui_builder)     publish_ui_builder     ;;
+            video_analyze)  publish_video_analyze  ;;
+            see_through)    publish_see_through    ;;
+            depth_anything) publish_depth_anything ;;
+            ai_rembg)       publish_ai_rembg       ;;
             *)
-                red "未知服务: ${target}（可选: ui_builder / video_analyze / see_through / ai_rembg）"
+                red "未知服务: ${target}（可选: ui_builder / video_analyze / see_through / depth_anything / ai_rembg）"
                 exit 1
                 ;;
         esac

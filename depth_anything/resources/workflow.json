@@ -1,0 +1,105 @@
+{
+  "99": {
+    "inputs": {
+      "output": "depth",
+      "output.normalization": "v2_style",
+      "output.apply_sky_clip": false,
+      "da3_geometry": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "DA3Render",
+    "_meta": {
+      "title": "渲染Depth Anything 3"
+    }
+  },
+  "100": {
+    "inputs": {
+      "resolution": 770,
+      "resize_method": "lower_bound_resize",
+      "mode": "mono",
+      "da3_model": [
+        "101",
+        0
+      ],
+      "image": [
+        "102",
+        0
+      ]
+    },
+    "class_type": "DA3Inference",
+    "_meta": {
+      "title": "运行Depth Anything 3"
+    }
+  },
+  "101": {
+    "inputs": {
+      "model_name": "depth_anything_3_mono_large.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "LoadDA3Model",
+    "_meta": {
+      "title": "加载Depth Anything 3"
+    }
+  },
+  "102": {
+    "inputs": {
+      "video": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "GetVideoComponents",
+    "_meta": {
+      "title": "获取视频元素"
+    }
+  },
+  "103": {
+    "inputs": {
+      "start_time": 0.0,
+      "duration": 30.0,
+      "strict_duration": false,
+      "video": [
+        "104",
+        0
+      ]
+    },
+    "class_type": "Video Slice",
+    "_meta": {
+      "title": "视频切片"
+    }
+  },
+  "104": {
+    "inputs": {
+      "file": "input.mp4",
+      "video-preview": ""
+    },
+    "class_type": "LoadVideo",
+    "_meta": {
+      "title": "加载视频"
+    }
+  },
+  "105": {
+    "inputs": {
+      "frame_rate": 30.0,
+      "loop_count": 0,
+      "filename_prefix": "depth_anything/requests/default/result",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": false,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "99",
+        0
+      ]
+    },
+    "class_type": "VHS_VideoCombine",
+    "_meta": {
+      "title": "合并为视频"
+    }
+  }
+}

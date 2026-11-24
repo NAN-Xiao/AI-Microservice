@@ -9,7 +9,7 @@ spring:
   application:
     name: ai-gateway
   codec:
-    max-in-memory-size: 52428800   # 50MB，与nginx的client_max_body_size保持一致
+    max-in-memory-size: 209715200   # 200MB，与nginx的client_max_body_size保持一致
   cloud:
     nacos:
       discovery:
@@ -32,7 +32,7 @@ spring:
           enabled: false
       httpclient:
         connect-timeout: 10000       # 10秒，连接超时时间
-        response-timeout: 600s       # 10分钟，LLM接口响应较慢需足够时间
+        response-timeout: 900s       # 15分钟，视频深度/LLM接口响应较慢需足够时间
         pool:
           max-idle-time: 30s         # 最大空闲时间30秒
       default-filters:

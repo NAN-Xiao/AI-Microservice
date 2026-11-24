@@ -1,0 +1,28 @@
+server:
+  host: 0.0.0.0
+  port: 9006
+  debug: false
+  log_to_file: true
+
+service:
+  name: depth_anything
+
+comfyui:
+  base_url: http://10.1.5.194:8080/proxy
+  timeout_seconds: 900
+  poll_interval_seconds: 1
+  concurrency: 1
+  workflow_path: resources/workflow.json
+  workflow_input_node_id: "104"
+  workflow_input_field: file
+  workflow_save_node_id: "105"
+  client_id: ""
+
+nacos:
+  enabled: "true"
+  server_addr: 127.0.0.1:8848
+  service_name: depth-anything-service
+  namespace: ""
+  group: DEFAULT_GROUP
+  username: nacos
+  password: nacos
