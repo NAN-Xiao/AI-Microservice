@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 
 from app.config import PROJECT_ROOT, settings
-from app.services.result_store import put_cleanup_data
+from app.services.result_store import cleanup_remote_resources, put_cleanup_data
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,11 @@ def _inject_uploaded_video(workflow: dict[str, Any], uploaded_name: str) -> dict
     return workflow
 
 
-def _inject_filename_prefix(workflow: dict[str, Any], filename_prefix: str) -> dict[str, Any]:
+def _inject_filename_prefix(
+    workflow: dict[str, Any],
+    filename_prefix: str,
+    frame_rate: float | None = None,
+) -> dict[str, Any]:
     node_id = settings.workflow_save_node_id
     node = workflow.get(node_id)
     if not isinstance(node, dict):
@@ -63,6 +67,26 @@ def _inject_filename_prefix(workflow: dict[str, Any], filename_prefix: str) -> d
         raise ComfyError(f"节点 {node_id} 缺少 inputs 字段")
 
     inputs["filename_prefix"] = filename_prefix
+    if frame_rate is not None and frame_rate > 0:
+        inputs["frame_rate"] = round(float(frame_rate), 3)
+    return workflow
+
+
+def _inject_slice_duration(workflow: dict[str, Any], duration: float | None) -> dict[str, Any]:
+    if duration is None or duration <= 0:
+        return workflow
+    node_id = settings.workflow_slice_node_id
+    if not node_id:
+        return workflow
+    node = workflow.get(node_id)
+    if not isinstance(node, dict):
+        return workflow
+    inputs = node.get("inputs")
+    if not isinstance(inputs, dict):
+        return workflow
+    clamped = round(min(float(duration), float(settings.video_max_duration)), 3)
+    inputs["start_time"] = 0.0
+    inputs["duration"] = clamped
     return workflow
 
 
@@ -145,6 +169,9 @@ async def generate_video_depth(
     video_bytes: bytes,
     filename: str,
     content_type: str | None,
+    *,
+    target_duration: float | None = None,
+    target_fps: float | None = None,
 ) -> tuple[bytes, str, str]:
     if not settings.comfyui_base_url:
         raise ComfyError("未配置 COMFYUI_BASE_URL")
@@ -153,24 +180,54 @@ async def generate_video_depth(
     base_url = settings.comfyui_base_url
     request_key = _make_request_key(filename)
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        upload_name = await _upload_input_video(client, base_url, video_bytes, filename, content_type, request_key)
-        prompt_id = await _enqueue_prompt(client, base_url, upload_name, request_key)
-        history = await _wait_for_history(client, base_url, prompt_id, timeout)
-        output_file = _pick_saved_video(history, request_key)
-        output_bytes = await _download_file(client, base_url, output_file)
-        _validate_mp4(output_bytes)
-        output_name = _make_output_name(filename)
-        cleanup_token = put_cleanup_data(
-            {
-                "prompt_id": prompt_id,
-                "uploaded_name": upload_name,
-                "prefix": request_key,
-                "directories": _collect_cleanup_directories(request_key),
-                "files": _collect_cleanup_targets(upload_name, output_file, history),
-            }
-        )
-        return output_bytes, output_name, cleanup_token
+    upload_name = ""
+    prompt_id = ""
+    history: dict[str, Any] = {}
+    output_file: dict[str, str] = {}
+    succeeded = False
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            upload_name = await _upload_input_video(client, base_url, video_bytes, filename, content_type, request_key)
+            prompt_id = await _enqueue_prompt(
+                client,
+                base_url,
+                upload_name,
+                request_key,
+                target_duration=target_duration,
+                target_fps=target_fps,
+            )
+            history = await _wait_for_history(client, base_url, prompt_id, timeout)
+            output_file = _pick_saved_video(history, request_key)
+            output_bytes = await _download_file(client, base_url, output_file)
+            _validate_mp4(output_bytes)
+            output_name = _make_output_name(filename)
+            cleanup_token = put_cleanup_data(
+                {
+                    "prompt_id": prompt_id,
+                    "uploaded_name": upload_name,
+                    "prefix": request_key,
+                    "directories": _collect_cleanup_directories(request_key),
+                    "files": _collect_cleanup_targets(upload_name, output_file, history),
+                }
+            )
+            succeeded = True
+            return output_bytes, output_name, cleanup_token
+    finally:
+        if not succeeded and (upload_name or prompt_id):
+            logger.info("任务未成功完成，触发 ComfyUI 远端资源兜底清理: request_key=%s", request_key)
+            try:
+                await cleanup_remote_resources(
+                    {
+                        "prompt_id": prompt_id,
+                        "uploaded_name": upload_name,
+                        "prefix": request_key,
+                        "directories": _collect_cleanup_directories(request_key),
+                        "files": _collect_cleanup_targets(upload_name, output_file, history),
+                    }
+                )
+            except Exception as exc:
+                logger.warning("失败任务兜底清理异常: request_key=%s error=%s", request_key, exc)
 
 
 async def _upload_input_video(
@@ -211,10 +268,18 @@ async def _enqueue_prompt(
     base_url: str,
     upload_name: str,
     request_key: str,
+    *,
+    target_duration: float | None = None,
+    target_fps: float | None = None,
 ) -> str:
     workflow = _load_workflow_template()
     workflow = _inject_uploaded_video(copy.deepcopy(workflow), upload_name)
-    workflow = _inject_filename_prefix(workflow, f"{_make_request_subfolder(request_key)}/result")
+    workflow = _inject_slice_duration(workflow, target_duration)
+    workflow = _inject_filename_prefix(
+        workflow,
+        f"{_make_request_subfolder(request_key)}/result",
+        frame_rate=target_fps,
+    )
 
     payload: dict[str, Any] = {
         "prompt": workflow,

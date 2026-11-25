@@ -12,11 +12,22 @@ comfyui:
   timeout_seconds: 900
   poll_interval_seconds: 1
   concurrency: 1
+  max_queue_size: 4
   workflow_path: resources/workflow.json
   workflow_input_node_id: "104"
   workflow_input_field: file
+  workflow_slice_node_id: "103"
   workflow_save_node_id: "105"
   client_id: ""
+
+video:
+  max_duration_seconds: 30.0
+  max_dimension: 1280
+  max_fps: 30.0
+  crf: 23
+  preset: veryfast
+  preprocess_concurrency: 2
+  preprocess_timeout_seconds: 180
 
 nacos:
   enabled: "true"

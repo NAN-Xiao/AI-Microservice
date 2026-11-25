@@ -87,6 +87,11 @@ def _build_settings() -> "Settings":
             _section_get(c, "comfyui", "concurrency", 1),
             int,
         ),
+        comfyui_max_queue_size=_from_env(
+            "COMFYUI_MAX_QUEUE_SIZE",
+            _section_get(c, "comfyui", "max_queue_size", 4),
+            int,
+        ),
         workflow_path=str(
             _from_env(
                 "COMFYUI_WORKFLOW_PATH",
@@ -99,11 +104,47 @@ def _build_settings() -> "Settings":
         workflow_input_field=str(
             _from_env("COMFYUI_WORKFLOW_INPUT_FIELD", _section_get(c, "comfyui", "workflow_input_field", "file"))
         ),
+        workflow_slice_node_id=str(
+            _from_env("COMFYUI_WORKFLOW_SLICE_NODE_ID", _section_get(c, "comfyui", "workflow_slice_node_id", "103"))
+        ),
         workflow_save_node_id=str(
             _from_env("COMFYUI_WORKFLOW_SAVE_NODE_ID", _section_get(c, "comfyui", "workflow_save_node_id", "105"))
         ),
         comfyui_client_id=str(
             _from_env("COMFYUI_CLIENT_ID", _section_get(c, "comfyui", "client_id", ""))
+        ),
+        video_max_duration=_from_env(
+            "VIDEO_MAX_DURATION_SECONDS",
+            _section_get(c, "video", "max_duration_seconds", 30.0),
+            float,
+        ),
+        video_max_dimension=_from_env(
+            "VIDEO_MAX_DIMENSION",
+            _section_get(c, "video", "max_dimension", 1280),
+            int,
+        ),
+        video_max_fps=_from_env(
+            "VIDEO_MAX_FPS",
+            _section_get(c, "video", "max_fps", 30.0),
+            float,
+        ),
+        video_crf=_from_env(
+            "VIDEO_CRF",
+            _section_get(c, "video", "crf", 23),
+            int,
+        ),
+        video_preset=str(
+            _from_env("VIDEO_PRESET", _section_get(c, "video", "preset", "veryfast"))
+        ),
+        video_preprocess_concurrency=_from_env(
+            "VIDEO_PREPROCESS_CONCURRENCY",
+            _section_get(c, "video", "preprocess_concurrency", 2),
+            int,
+        ),
+        video_preprocess_timeout=_from_env(
+            "VIDEO_PREPROCESS_TIMEOUT",
+            _section_get(c, "video", "preprocess_timeout_seconds", 180),
+            int,
         ),
         nacos_enabled=str(_from_env("NACOS_ENABLED", _section_get(c, "nacos", "enabled", "true"))),
         nacos_server_addr=_from_env("NACOS_SERVER_ADDR", _section_get(c, "nacos", "server_addr", "127.0.0.1:8848")),
@@ -126,11 +167,20 @@ class Settings:
     comfyui_timeout: int
     comfyui_poll_interval: float
     comfyui_concurrency: int
+    comfyui_max_queue_size: int
     workflow_path: str
     workflow_input_node_id: str
     workflow_input_field: str
+    workflow_slice_node_id: str
     workflow_save_node_id: str
     comfyui_client_id: str
+    video_max_duration: float
+    video_max_dimension: int
+    video_max_fps: float
+    video_crf: int
+    video_preset: str
+    video_preprocess_concurrency: int
+    video_preprocess_timeout: int
     nacos_enabled: str
     nacos_server_addr: str
     nacos_service_name: str
